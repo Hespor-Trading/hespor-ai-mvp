@@ -1,18 +1,18 @@
+// app/api/chat/route.ts
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // ensure Node runtime on Vercel
+export const dynamic = "force-dynamic"; // avoid any static optimization
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// --- Basic CORS helper ---
-function withCors(json: any, status = 200) {
-  return new NextResponse(JSON.stringify(json), {
-    status,
+// CORS preflight (for browsers)
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
     headers: {
-      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
@@ -20,35 +20,40 @@ function withCors(json: any, status = 200) {
   });
 }
 
-// Preflight
-export async function OPTIONS() {
-  return withCors({}, 204);
-}
-
-// Simple GET for a quick health check
+// Simple health check
 export async function GET() {
-  return withCors({ ok: true });
+  return NextResponse.json(
+    { ok: true },
+    { headers: { "Access-Control-Allow-Origin": "*" } }
+  );
 }
 
-// Handle POST /api/chat
+// The actual chat endpoint
 export async function POST(req: Request) {
   try {
     const { message } = await req.json();
-    if (!message) return withCors({ error: "Missing message" }, 400);
+    if (!message) {
+      return NextResponse.json(
+        { error: "Missing message" },
+        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
 
     const completion = await client.responses.create({
-      model: "gpt-5", // you can use "gpt-4.1" if needed
+      model: "gpt-5",
       input: message,
     });
 
-    const reply =
-      completion.output_text?.trim() ||
-      completion.output?.[0]?.content?.[0]?.text?.trim() ||
-      "No reply";
+    const text = completion.output_text?.trim() || "No reply";
 
-    return withCors({ reply });
+    return NextResponse.json(
+      { reply: text },
+      { headers: { "Access-Control-Allow-Origin": "*" } }
+    );
   } catch (err: any) {
-    console.error("Chat API error:", err?.message || err);
-    return withCors({ error: "Chat API failed" }, 500);
+    return NextResponse.json(
+      { error: "Chat API failed", details: err?.message ?? "unknown" },
+      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
+    );
   }
 }
