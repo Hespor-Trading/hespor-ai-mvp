@@ -1,9 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  // Optional but fine to keep:
-  experimental: { appDir: true },
-  // DO NOT add: output: 'export'
+  // IMPORTANT: Do NOT set `output: 'export'`
+  // You can keep other options if you have them.
 };
 
 export default nextConfig;
