@@ -2,13 +2,12 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic"; // avoid any static optimization
+export const dynamic = "force-dynamic"; // avoid static optimization
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// CORS preflight (for browsers)
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
@@ -20,7 +19,6 @@ export async function OPTIONS() {
   });
 }
 
-// Simple health check
 export async function GET() {
   return NextResponse.json(
     { ok: true },
@@ -28,7 +26,6 @@ export async function GET() {
   );
 }
 
-// The actual chat endpoint
 export async function POST(req: Request) {
   try {
     const { message } = await req.json();
@@ -45,7 +42,6 @@ export async function POST(req: Request) {
     });
 
     const text = completion.output_text?.trim() || "No reply";
-
     return NextResponse.json(
       { reply: text },
       { headers: { "Access-Control-Allow-Origin": "*" } }
