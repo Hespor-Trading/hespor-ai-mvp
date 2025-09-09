@@ -13,5 +13,10 @@
     "react-dom": "18.2.0",
     "openai": "^4.60.1",
     "lucide-react": "^0.446.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "@types/react": "^18.2.74",
+    "@types/node": "^20.14.10"
   }
 }
