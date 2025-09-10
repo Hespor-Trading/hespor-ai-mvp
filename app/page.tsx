@@ -1,67 +1,72 @@
+// app/page.tsx
 "use client";
 
+import { useState } from "react";
+
 export default function Home() {
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [message, setMessage] = useState("");
+  const [reply, setReply] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    alert("Submitted! (wire this up later)");
-  };
+    setLoading(true);
+    setReply(null);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Request failed");
+
+      setReply(data.reply);
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: 16 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
-        Hespor AI MVP
-      </h1>
+    <main style={{ maxWidth: 800, margin: "60px auto", padding: 20 }}>
+      <h1>Hespor AI MVP</h1>
+      <p>Type a prompt and press Run.</p>
 
-      <p style={{ marginBottom: 20 }}>
-        MVP is live. Connect Stripe/OpenAI later. This page uses basic HTML
-        elements (no shadcn) to avoid missing component imports.
-      </p>
-
-      <form onSubmit={onSubmit}
-        style={{
-          display: "grid",
-          gap: 12,
-          border: "1px solid #eee",
-          padding: 16,
-          borderRadius: 8,
-        }}
-      >
-        <label>
-          Prompt
-          <textarea
-            name="prompt"
-            rows={4}
-            placeholder="Type something…"
-            style={{ width: "100%", marginTop: 6 }}
-          />
-        </label>
-
-        <label>
-          API Key (optional)
-          <input
-            name="key"
-            type="password"
-            placeholder="OPENAI_API_KEY"
-            style={{ width: "100%", marginTop: 6 }}
-          />
-        </label>
-
+      <form onSubmit={handleSubmit} style={{ marginTop: 20 }}>
+        <label>Prompt</label>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={5}
+          placeholder="Type something…"
+          style={{ width: "100%", marginTop: 8 }}
+        />
         <button
           type="submit"
-          style={{
-            padding: "10px 16px",
-            borderRadius: 6,
-            border: "1px solid #333",
-            background: "#111",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: 600,
-            width: "fit-content",
-          }}
+          disabled={loading || !message.trim()}
+          style={{ marginTop: 12, padding: "8px 16px" }}
         >
-          Run
+          {loading ? "Thinking…" : "Run"}
         </button>
       </form>
+
+      {error && (
+        <div style={{ marginTop: 16, color: "crimson" }}>
+          <b>Error:</b> {error}
+        </div>
+      )}
+
+      {reply && (
+        <div style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>
+          <b>Reply:</b> {reply}
+        </div>
+      )}
     </main>
   );
 }
