@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     const completion = await client.responses.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       input: message,
     });
 
