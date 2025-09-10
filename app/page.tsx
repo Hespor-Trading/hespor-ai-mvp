@@ -1,4 +1,11 @@
+"use client";
+
 export default function Home() {
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    alert("Submitted! (wire this up later)");
+  };
+
   return (
     <main style={{ maxWidth: 720, margin: "40px auto", padding: 16 }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
@@ -6,15 +13,11 @@ export default function Home() {
       </h1>
 
       <p style={{ marginBottom: 20 }}>
-        MVP is live. Connect Stripe/OpenAI later. This page uses basic HTML elements
-        (no shadcn) to avoid missing component imports.
+        MVP is live. Connect Stripe/OpenAI later. This page uses basic HTML
+        elements (no shadcn) to avoid missing component imports.
       </p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          alert("Submitted! (wire this up later)");
-        }}
+      <form onSubmit={onSubmit}
         style={{
           display: "grid",
           gap: 12,
