@@ -17,8 +17,10 @@
   "@aws-sdk/client-s3": "^3.645.0"
 },
   "devDependencies": {
-    "typescript": "^5.5.4",
-    "@types/react": "^18.2.74",
-    "@types/node": "^20.14.10"
+  "typescript": "^5.5.4",
+  "@types/react": "^18.2.74",
+  "@types/node": "^20.14.10",
+  "postcss": "^8.4.41",
+  "autoprefixer": "^10.4.19"
   }
 }
