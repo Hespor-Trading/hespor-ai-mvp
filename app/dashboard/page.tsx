@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import "./style.css"; // local CSS for the dashboard
+import "./style.css";
 
 type Range = "7d" | "30d" | "90d" | "ytd" | "360d";
 
@@ -15,12 +15,14 @@ export default function Dashboard() {
   const [used, setUsed] = useState(0);
 
   useEffect(() => {
+    // If Stripe redirected with ?paid=1, mark subscription on this browser (MVP)
     const url = new URL(window.location.href);
     if (url.searchParams.get("paid") === "1") {
       localStorage.setItem("hespor_sub", "1");
     }
     setSubActive(localStorage.getItem("hespor_sub") === "1");
 
+    // Load recent actions (optional S3)
     (async () => {
       try {
         const r = await fetch("/api/feed/last", { cache: "no-store" });
@@ -31,6 +33,7 @@ export default function Dashboard() {
       }
     })();
 
+    // Free messages used (MVP)
     const key = "hespor_free_chat_used";
     setUsed(Number(localStorage.getItem(key) || "0"));
   }, []);
@@ -38,7 +41,7 @@ export default function Dashboard() {
   async function send() {
     if (!subActive && used >= 10) {
       setReply(
-        "Free plan limit reached (10 messages/week). Activate Hespor Algo for unlimited chat."
+        "Free plan limit reached (10 messages/week). Activate Hespor Algorithm for unlimited chat."
       );
       return;
     }
@@ -65,17 +68,13 @@ export default function Dashboard() {
           <span className="dot" /> HESPOR
         </div>
         <nav className="hz-nav">
-          <a href="/" className="hz-link">
-            Home
-          </a>
-          <a href="/dashboard" className="hz-link active">
-            Dashboard
-          </a>
+          <a href="/" className="hz-link">Home</a>
+          <a href="/dashboard" className="hz-link active">Dashboard</a>
         </nav>
       </header>
 
       <main className="hz-grid">
-        {/* LEFT column */}
+        {/* LEFT */}
         <section className="hz-left">
           {!subActive ? (
             <EnableAlgoCard />
@@ -95,14 +94,12 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* RIGHT column: Chat */}
+        {/* RIGHT: Chat */}
         <aside className="hz-card hz-chat">
           <div className="hz-card-head">
             <h3>Hespor Chat</h3>
             {!subActive && (
-              <span className="hz-pill">
-                Free: {Math.max(0, 10 - used)}/10 this week
-              </span>
+              <span className="hz-pill">Free: {Math.max(0, 10 - used)}/10 this week</span>
             )}
           </div>
 
@@ -125,9 +122,7 @@ export default function Dashboard() {
               onChange={(e) => setMsg(e.target.value)}
               placeholder="Type your question…"
             />
-            <button onClick={send} className="hz-btn">
-              Send
-            </button>
+            <button onClick={send} className="hz-btn">Send</button>
           </div>
         </aside>
       </main>
@@ -159,9 +154,8 @@ function EnableAlgoCard() {
         <h3>Enable Hespor Algorithm</h3>
         <span className="hz-pill accent">$49/mo · 7-day free trial</span>
       </div>
-
       <p className="hz-muted">
-        Answer 2 questions to activate the automation. You can cancel any time.
+        Answer 2 questions to activate the automation. Cancel any time.
       </p>
 
       <div className="hz-form">
@@ -169,7 +163,6 @@ function EnableAlgoCard() {
           <span>Break-even ACOS (%)</span>
           <input value={acos} onChange={(e) => setAcos(e.target.value)} />
         </label>
-
         <label>
           <span>Primary ASIN</span>
           <input
@@ -223,9 +216,7 @@ function SalesBlock({
         <div className="bar" style={{ height: "60%" }} />
       </div>
 
-      <p className="hz-muted">
-        Placeholder. We’ll wire real SP-API sales once Amazon approves you.
-      </p>
+      <p className="hz-muted">Real sales will show once Amazon approves your SP-API.</p>
     </div>
   );
 }
