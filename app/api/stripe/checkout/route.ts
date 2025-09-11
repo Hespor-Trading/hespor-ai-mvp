@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
-});
+// No apiVersion here to avoid TS union mismatch
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   const { acos, asin } = await req.json().catch(() => ({ acos: "25", asin: "" }));
