@@ -1,10 +1,10 @@
 :root{
-  --bg:#042d2c;           /* deep teal */
-  --card:#083b3a;         /* card teal */
-  --muted:#9edbd0;        /* soft mint text */
-  --text:#eaf7f4;         /* main text */
-  --accent:#ff6b6b;       /* coral */
-  --brand:#00d4a5;        /* mint/green */
+  --bg:#042d2c;
+  --card:#083b3a;
+  --muted:#9edbd0;
+  --text:#eaf7f4;
+  --accent:#ff6b6b;
+  --brand:#00d4a5;
   --border:#0e4a47;
 }
 
@@ -18,9 +18,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-s
   padding:0 20px;border-bottom:1px solid var(--border);background:rgba(0,0,0,.12)
 }
 .hz-logo{font-weight:800;letter-spacing:.5px}
-.hz-logo .dot{
-  width:10px;height:10px;border-radius:2px;background:var(--brand);display:inline-block;margin-right:8px
-}
+.hz-logo .dot{width:10px;height:10px;border-radius:2px;background:var(--brand);display:inline-block;margin-right:8px}
 .hz-nav{display:flex;gap:14px}
 .hz-link{color:var(--muted);text-decoration:none;font-size:14px}
 .hz-link.active,.hz-link:hover{color:var(--text)}
@@ -29,9 +27,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-s
   padding:24px;display:grid;gap:24px;
   grid-template-columns: 1fr; max-width:1200px; margin:0 auto;
 }
-@media (min-width: 1024px){
-  .hz-grid{grid-template-columns: 2fr 1fr;}
-}
+@media (min-width: 1024px){ .hz-grid{ grid-template-columns: 2fr 1fr; } }
 
 .hz-left{display:flex;flex-direction:column;gap:24px}
 
@@ -42,9 +38,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-s
 }
 .hz-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .hz-card h3{margin:0;font-size:18px;letter-spacing:.3px}
-.hz-pill{
-  border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)
-}
+.hz-pill{border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
 .hz-pill.accent{border-color:var(--accent);color:var(--text);background:rgba(255,107,107,.15)}
 
 .hz-muted{color:var(--muted);font-size:13px;margin:6px 0 14px}
@@ -78,7 +72,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-s
 .hz-chat{display:flex;flex-direction:column;gap:12px}
 .hz-chat-body{min-height:160px;border:1px dashed var(--border);border-radius:12px;padding:14px}
 .hz-placeholder{color:var(--muted);font-size:13px;opacity:.9}
-
 .hz-bubble{max-width:100%;margin-bottom:10px}
 .hz-bubble.bot{background:#0b4543;border:1px solid var(--border);border-radius:12px;padding:10px}
 .hz-bubble-title{font-weight:700;margin-bottom:4px;color:var(--brand)}
