@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Hespor AI – MVP",
-  description: "Beginner-friendly, inventory-aware PPC coach",
-};
+// app/layout.tsx
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
