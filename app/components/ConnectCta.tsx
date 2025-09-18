@@ -11,7 +11,7 @@ export default function ConnectCta() {
     const data = await res.json();
 
     if (res.ok && typeof data?.url === "string" && data.url.startsWith("http")) {
-      window.location.assign(data.url); // go to Stripe
+      window.location.assign(data.url);
     } else {
       alert(data?.error || "Could not start checkout.");
     }
@@ -21,9 +21,17 @@ export default function ConnectCta() {
     <button
       type="button"
       onClick={startCheckout}
-      className="rounded-xl px-4 py-2 bg-emerald-400 text-black font-semibold"
+      style={{
+        background: "linear-gradient(90deg,#10b981,#34d399)",
+        color: "#052e2b",
+        fontWeight: 700,
+        padding: "12px 18px",
+        borderRadius: 999,
+        border: "none",
+        cursor: "pointer",
+      }}
     >
-      Connect to Hespor AI Advertising
+      Connect to Hespor Algorithm – Advertising Optimization
     </button>
   );
 }
