@@ -1,66 +1,95 @@
 import ConnectCta from "./components/ConnectCta";
+import RecentChanges from "./components/RecentChanges";
 
 export default function Home() {
   return (
     <main
       className="min-h-screen"
-      style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "24px", padding: "24px" }}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "420px 1fr",
+        gap: 24,
+        padding: 24,
+        background: "#f7f7f8",
+      }}
     >
       {/* LEFT COLUMN */}
-      <section style={{ display: "grid", gridTemplateRows: "auto 1fr auto", gap: "16px" }}>
-        {/* Top-left header */}
-        <div style={{ fontSize: 28, fontWeight: 800 }}>Hespor Dashboard (Free)</div>
-
-        {/* Middle-left: your content area (keep empty or add anything) */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            padding: 16,
-            minHeight: 300,
-          }}
-        >
-          <div style={{ opacity: 0.7 }}>Your widgets can go here.</div>
+      <section style={{ display: "grid", gridTemplateRows: "auto 1fr auto", gap: 16 }}>
+        {/* Top-left: connect button */}
+        <div style={{ display: "flex", justifyContent: "flex-start" }}>
+          <ConnectCta />
         </div>
 
-        {/* Bottom-left: green connect button */}
-        <div
-          style={{
-            borderTop: "1px dashed #e5e7eb",
-            paddingTop: 12,
-            display: "flex",
-            justifyContent: "flex-start",
-          }}
-        >
-          <ConnectCta />
+        {/* spacer / your future widgets */}
+        <div />
+
+        {/* Bottom-left: recent changes */}
+        <div>
+          <RecentChanges />
         </div>
       </section>
 
-      {/* RIGHT COLUMN — Chat panel placeholder */}
+      {/* RIGHT: big chat area */}
       <section
         style={{
           border: "1px solid #e5e7eb",
-          borderRadius: 12,
+          borderRadius: 16,
+          background: "white",
+          minHeight: "70vh",
           padding: 16,
-          minHeight: 500,
-          display: "flex",
-          flexDirection: "column",
+          display: "grid",
+          gridTemplateRows: "auto 1fr auto",
+          gap: 12,
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Chat</div>
+        <div style={{ fontSize: 20, fontWeight: 800 }}>Chat</div>
+
+        {/* Chat body (placeholder) */}
         <div
           style={{
-            flex: 1,
-            background: "#fafafa",
             border: "1px solid #eee",
-            borderRadius: 8,
+            borderRadius: 12,
+            background: "#fbfbfb",
             padding: 12,
+            overflow: "auto",
           }}
         >
-          {/* Replace this box with your real chat widget when ready */}
-          <div style={{ opacity: 0.7 }}>
-            ChatGPT panel placeholder. (We’ll wire your real chat here later.)
+          <div style={{ opacity: 0.65 }}>
+            ChatGPT-like panel goes here. When you drop in your chat widget/component, put it in this box and it will fill
+            the right side.
           </div>
+        </div>
+
+        {/* Input bar placeholder */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: 8,
+            alignItems: "center",
+          }}
+        >
+          <input
+            placeholder="Type a message…"
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 999,
+              padding: "12px 16px",
+              outline: "none",
+            }}
+          />
+          <button
+            style={{
+              background: "#111827",
+              color: "white",
+              borderRadius: 999,
+              padding: "10px 16px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Send
+          </button>
         </div>
       </section>
     </main>
