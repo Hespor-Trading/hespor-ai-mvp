@@ -1,8 +1,8 @@
-export const dynamic = "force-dynamic";
+// app/page.tsx
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default function Page() {
-  // Brand palette
   const GREEN = "#00D3A4";
   const GREY_BG = "#ECEFF1";
   const GREY_BORDER = "#D7DBDF";
@@ -24,20 +24,17 @@ export default function Page() {
         background: GREY_BG,
         color: BLACK,
         display: "grid",
-        gridTemplateColumns: "minmax(360px, 44%) minmax(520px, 1fr)", // ≈ 50% right
+        gridTemplateColumns: "minmax(360px, 44%) minmax(520px, 1fr)",
         gap: 24,
         padding: 24,
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
       }}
     >
       {/* LEFT COLUMN */}
       <section style={{ display: "grid", gridTemplateRows: "auto 1fr auto", gap: 16 }}>
         {/* Top: CTA */}
         <div style={card}>
-          <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>
-            Automate with Hespor AI
-          </div>
-
-          {/* One-click connect (Ads API → SP-API) */}
+          <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>Automate with Hespor AI</div>
           <a
             href="/api/connect/start"
             style={{
@@ -52,17 +49,17 @@ export default function Page() {
               boxShadow: "0 6px 16px rgba(16,185,129,0.18)",
             }}
           >
-            Use Hespor Algorithm — $49/mo • Free trial
+            Use Hespor Algorithm – $49/month • Free Trial
           </a>
-
           <p style={{ marginTop: 10, fontSize: 13, color: "#6b7280" }}>
             Connect your Amazon Ads & SP-API accounts to start optimizing instantly.
           </p>
         </div>
 
-        {/* (Optional) space for small stats */}
+        {/* Spacer (optional stats later) */}
+        <div />
 
-        {/* Bottom: humanized recent changes */}
+        {/* Bottom: Recent changes */}
         <div style={{ ...card, display: "grid", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>Recent Campaign Updates</div>
@@ -115,7 +112,7 @@ export default function Page() {
         </div>
       </section>
 
-      {/* RIGHT COLUMN — ChatGPT-style panel */}
+      {/* RIGHT COLUMN — Chat */}
       <section
         style={{
           ...card,
@@ -149,7 +146,7 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Input row */}
+        {/* Input */}
         <form
           onSubmit={(e) => e.preventDefault()}
           style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", marginTop: 10 }}
