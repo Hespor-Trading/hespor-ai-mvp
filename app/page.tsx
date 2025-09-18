@@ -1,97 +1,79 @@
-import ConnectCta from "./components/ConnectCta";
-import RecentChanges from "./components/RecentChanges";
+export default function DashboardPreview() {
+const palette = {
+green: "#00D3A4", // Hespor brand green
+greyBg: "#ECEFF1", // light grey
+greyBorder: "#D7DBDF",
+} as const;
 
-export default function Home() {
-  return (
-    <main
-      className="min-h-screen"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "420px 1fr",
-        gap: 24,
-        padding: 24,
-        background: "#f7f7f8",
-      }}
-    >
-      {/* LEFT COLUMN */}
-      <section style={{ display: "grid", gridTemplateRows: "auto 1fr auto", gap: 16 }}>
-        {/* Top-left: connect button */}
-        <div style={{ display: "flex", justifyContent: "flex-start" }}>
-          <ConnectCta />
-        </div>
 
-        {/* spacer / your future widgets */}
-        <div />
+return (
+<div className="min-h-screen p-6" style={{ background: palette.greyBg }}>
+<div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]">
+{/* LEFT COLUMN */}
+<section className="grid grid-rows-[auto_auto_1fr] gap-4">
+{/* Top-left: brand connect CTA */}
+<div
+className="rounded-2xl border p-4 shadow-sm"
+style={{ borderColor: palette.greyBorder, background: "white" }}
+>
+<div className="text-sm text-neutral-600 mb-2 font-semibold">
+Hespor Connection
+</div>
+<a
+href="/api/connect/start"
+className="block w-full rounded-full px-5 py-3 font-semibold text-center shadow transition hover:shadow-md"
+style={{
+background: `linear-gradient(90deg, ${palette.green}, #34D399)`,
+color: "#042925",
+textDecoration: "none",
+}}
+>
+Use Hespor Algorithm to optimize your campaigns — $49/mo • Free trial
+</a>
+<p className="mt-2 text-xs text-neutral-500">
+Click above to connect both Amazon Ads API and SP-API. Once connected, you’ll be redirected back here and the
+dashboard + chat assistant will become active.
+</p>
+</div>
 
-        {/* Bottom-left: recent changes */}
-        <div>
-          <RecentChanges />
-        </div>
-      </section>
 
-      {/* RIGHT: big chat area */}
-      <section
-        style={{
-          border: "1px solid #e5e7eb",
-          borderRadius: 16,
-          background: "white",
-          minHeight: "70vh",
-          padding: 16,
-          display: "grid",
-          gridTemplateRows: "auto 1fr auto",
-          gap: 12,
-        }}
-      >
-        <div style={{ fontSize: 20, fontWeight: 800 }}>Chat</div>
+{/* Quick stats */}
+<div className="grid grid-cols-2 gap-3">
+{[
+{ label: "Spend (7d)", value: "$2,430" },
+{ label: "Sales (7d)", value: "$7,980" },
+{ label: "ACOS", value: "30%" },
+{ label: "Units", value: "412" },
+].map((t, i) => (
+<div
+key={i}
+className="rounded-xl p-3 text-sm font-medium"
+style={{ background: "white", border: "1px solid " + palette.greyBorder }}
+>
+<div className="text-neutral-500 text-xs">{t.label}</div>
+<div className="text-neutral-900 text-lg">{t.value}</div>
+</div>
+))}
+</div>
 
-        {/* Chat body (placeholder) */}
-        <div
-          style={{
-            border: "1px solid #eee",
-            borderRadius: 12,
-            background: "#fbfbfb",
-            padding: 12,
-            overflow: "auto",
-          }}
-        >
-          <div style={{ opacity: 0.65 }}>
-            ChatGPT-like panel goes here. When you drop in your chat widget/component, put it in this box and it will fill
-            the right side.
-          </div>
-        </div>
 
-        {/* Input bar placeholder */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: 8,
-            alignItems: "center",
-          }}
-        >
-          <input
-            placeholder="Type a message…"
-            style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 999,
-              padding: "12px 16px",
-              outline: "none",
-            }}
-          />
-          <button
-            style={{
-              background: "#111827",
-              color: "white",
-              borderRadius: 999,
-              padding: "10px 16px",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Send
-          </button>
-        </div>
-      </section>
-    </main>
-  );
+{/* Recent changes */}
+<div
+className="rounded-2xl p-4"
+style={{ background: "white", border: "1px solid " + palette.greyBorder }}
+>
+<div className="mb-3 flex items-center justify-between">
+<div className="text-base font-bold">Recent changes</div>
+<span
+className="text-xs rounded-full px-2 py-1"
+style={{ background: palette.greyBg, color: "#374151" }}
+>
+from applied/DECOGAR
+</span>
+</div>
+<ul className="space-y-3">
+{[
+{
+time: "Today 09:20",
+summary: "Raised bids +10% on exact winners (ACOS ≤ breakeven).",
 }
