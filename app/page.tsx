@@ -9,15 +9,14 @@ export default function Page() {
   const BLACK = "#0F172A";
   const WHITE = "#FFFFFF";
 
-  const card = {
+  const card: React.CSSProperties = {
     background: WHITE,
     border: `1px solid ${GREY_BORDER}`,
     borderRadius: 16,
     padding: 16,
     boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-  } as const;
+  };
 
-  // --- PAGE ---
   return (
     <main
       style={{
@@ -25,16 +24,18 @@ export default function Page() {
         background: GREY_BG,
         color: BLACK,
         display: "grid",
-        gridTemplateColumns: "minmax(360px, 44%) minmax(520px, 1fr)",
+        gridTemplateColumns: "minmax(360px, 44%) minmax(520px, 1fr)", // ≈ 50% right
         gap: 24,
         padding: 24,
       }}
     >
       {/* LEFT COLUMN */}
       <section style={{ display: "grid", gridTemplateRows: "auto 1fr auto", gap: 16 }}>
-        {/* Top: CTA card */}
+        {/* Top: CTA */}
         <div style={card}>
-          <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>Automate with Hespor AI</div>
+          <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>
+            Automate with Hespor AI
+          </div>
 
           {/* One-click connect (Ads API → SP-API) */}
           <a
@@ -51,7 +52,7 @@ export default function Page() {
               boxShadow: "0 6px 16px rgba(16,185,129,0.18)",
             }}
           >
-            Use Hespor Algorithm – $49/month • Free Trial
+            Use Hespor Algorithm — $49/mo • Free trial
           </a>
 
           <p style={{ marginTop: 10, fontSize: 13, color: "#6b7280" }}>
@@ -59,9 +60,9 @@ export default function Page() {
           </p>
         </div>
 
-        {/* Spacer / (optional) small stats could go here */}
+        {/* (Optional) space for small stats */}
 
-        {/* Bottom: Recent changes (humanized) */}
+        {/* Bottom: humanized recent changes */}
         <div style={{ ...card, display: "grid", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>Recent Campaign Updates</div>
@@ -114,7 +115,7 @@ export default function Page() {
         </div>
       </section>
 
-      {/* RIGHT COLUMN — ChatGPT-like panel (≈50% width) */}
+      {/* RIGHT COLUMN — ChatGPT-style panel */}
       <section
         style={{
           ...card,
