@@ -21,7 +21,7 @@ export default function ConnectCta() {
     <button
       type="button"
       onClick={startCheckout}
-      className="rounded-xl px-4 py-2"
+      className="rounded-xl px-4 py-2 bg-emerald-400 text-black font-semibold"
     >
       Connect to Hespor AI Advertising
     </button>
