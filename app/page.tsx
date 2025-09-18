@@ -10,22 +10,19 @@ export default function Home() {
   const [err, setErr] = useState<string | null>(null);
 
   const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault();           // ❗ don’t let the page navigate
     setErr(null);
     setLoading(true);
     try {
-      // MUST match the API route in step 2
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brand, acos, asin }),
       });
-
       const data = await res.json();
 
-      // Only navigate if we got a real URL
       if (res.ok && typeof data?.url === "string" && data.url.startsWith("http")) {
-        window.location.assign(data.url); // go to Stripe
+        window.location.assign(data.url);   // ✅ go to Stripe checkout
       } else {
         setErr(data?.error || "Could not start checkout.");
       }
@@ -40,7 +37,6 @@ export default function Home() {
     <main className="p-8 max-w-md">
       <h1 className="text-2xl font-semibold mb-4">Connect your brand</h1>
 
-      {/* IMPORTANT: this is a plain form with a submit handler */}
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <input
           required
@@ -64,7 +60,7 @@ export default function Home() {
           className="border rounded p-2"
         />
 
-        {/* DO NOT wrap this in <Link>. No href. */}
+        {/* IMPORTANT: NO Link, NO href. Just a submit button. */}
         <button type="submit" disabled={loading} className="border rounded p-2">
           {loading ? "Connecting..." : "Connect"}
         </button>
