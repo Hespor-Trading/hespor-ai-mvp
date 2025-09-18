@@ -1,8 +1,7 @@
-// app/api/stripe/checkout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-// Don't pass apiVersion to avoid TS union mismatch
+// Don't pass apiVersion to avoid TS union errors
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
@@ -30,18 +29,12 @@ export async function POST(req: Request) {
     });
 
     if (!session.url) {
-      return NextResponse.json(
-        { error: "Stripe did not return a URL" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Stripe did not return a URL" }, { status: 500 });
     }
 
     return NextResponse.json({ url: session.url });
   } catch (err: any) {
     console.error(err);
-    return NextResponse.json(
-      { error: err?.message ?? "Unknown error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err?.message ?? "Unknown error" }, { status: 500 });
   }
 }
