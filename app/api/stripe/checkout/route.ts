@@ -1,33 +1,35 @@
+// app/api/checkout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-// keep Stripe client simple to avoid TS unions
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({} as any));
+  try {
+    const { brand, acos, asin } = await req.json();
 
-  // Expect these from the dashboard form
-  const brand = String(body.brand || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const acos = String(body.acos ?? "25");           // break-even ACOS %
-  const asin = String(body.asin ?? "").toUpperCase();
+    if (!brand) return NextResponse.json({ error: "Missing brand" }, { status: 400 });
 
-  if (!brand) {
-    return NextResponse.json({ ok: false, error: "Brand is required" }, { status: 400 });
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: process.env.STRIPE_PRICE_ID_49!, quantity: 1 }],
+      success_url: `${base}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/cancel`,
+      metadata: {
+        brand,
+        acos: String(acos ?? ""),
+        asin: String(asin ?? ""),
+      },
+    });
+
+    if (!session.url) {
+      return NextResponse.json({ error: "Stripe did not return a URL" }, { status: 500 });
+    }
+    return NextResponse.json({ url: session.url });
+  } catch (err: any) {
+    console.error(err);
+    return NextResponse.json({ error: err?.message ?? "Unknown error" }, { status: 500 });
   }
-
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL || "https://hespor-ai-mvp-eight.vercel.app";
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRICE_ID_49!, quantity: 1 }],
-    subscription_data: { trial_period_days: 7 },
-    success_url: `${base}/dashboard?paid=1&brand=${brand}`,
-    cancel_url: `${base}/dashboard`,
-    client_reference_id: brand, // we’ll use this in the webhook
-    metadata: { brand, acos, asin },
-  });
-
-  return NextResponse.json({ url: session.url });
 }
