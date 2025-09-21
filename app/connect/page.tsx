@@ -1,19 +1,11 @@
-// app/connect/page.tsx
+// app/connect/page.tsx (Server Component version — fixes "process is not defined")
 // Drop this file into your Next.js app router project (./app/connect/page.tsx)
 // TailwindCSS assumed. No external deps required.
-// Uses public envs: NEXT_PUBLIC_SP_OAUTH_URL, NEXT_PUBLIC_ADS_OAUTH_URL
-// If you don't have the OAuth URLs yet, the buttons will be disabled.
-
-'use client'
-
-import Image from 'next/image'
-import { useMemo } from 'react'
+// Reads env on the SERVER at render time and passes to the browser as plain hrefs.
 
 export default function ConnectPage() {
-  const SP_URL = process.env.NEXT_PUBLIC_SP_OAUTH_URL || ''
-  const ADS_URL = process.env.NEXT_PUBLIC_ADS_OAUTH_URL || ''
-
-  const canConnect = useMemo(() => Boolean(SP_URL && ADS_URL), [SP_URL, ADS_URL])
+  const SP_URL = process.env.NEXT_PUBLIC_SP_OAUTH_URL ?? ''
+  const ADS_URL = process.env.NEXT_PUBLIC_ADS_OAUTH_URL ?? ''
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-gray-50 text-gray-900">
@@ -49,14 +41,14 @@ export default function ConnectPage() {
             <a
               href={SP_URL || '#'}
               aria-disabled={!SP_URL}
-              className={`inline-flex w-full sm:w-auto items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed ${SP_URL ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-200 text-gray-500'}`}
+              className={`inline-flex w-full sm:w-auto items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold shadow-sm transition ${SP_URL ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
             >
               1) Connect Amazon Seller (SP‑API)
             </a>
             <a
               href={ADS_URL || '#'}
               aria-disabled={!ADS_URL}
-              className={`inline-flex w-full sm:w-auto items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed ${ADS_URL ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-200 text-gray-500'}`}
+              className={`inline-flex w-full sm:w-auto items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold shadow-sm transition ${ADS_URL ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
             >
               2) Connect Amazon Ads
             </a>
