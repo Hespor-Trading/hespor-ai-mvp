@@ -1,11 +1,13 @@
 import { S3Client } from "@aws-sdk/client-s3";
+import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { LambdaClient } from "@aws-sdk/client-lambda";
 
-export function s3() {
-  const region = process.env.AWS_REGION || "us-east-1";
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID!;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY!;
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error("Missing AWS credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)");
-  }
-  return new S3Client({ region, credentials: { accessKeyId, secretAccessKey } });
-}
+const region = process.env.AWS_REGION || "us-east-1";
+const credentials = {
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+};
+
+export const s3 = () => new S3Client({ region, credentials });
+export const secrets = () => new SecretsManagerClient({ region, credentials });
+export const lambda = () => new LambdaClient({ region, credentials });
