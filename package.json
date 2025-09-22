@@ -1,26 +1,18 @@
 {
-  "name": "hespor-ai-mvp",
-  "version": "0.1.0",
-  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
-  "next": "14.2.4",
-  "react": "18.2.0",
-  "react-dom": "18.2.0",
-  "openai": "^4.60.1",
-  "stripe": "^14.25.0",
-  "lucide-react": "^0.446.0",
-  "@aws-sdk/client-s3": "^3.645.0"
-},
+    "next": "14.2.4",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
   "devDependencies": {
-  "typescript": "^5.5.4",
-  "@types/react": "^18.2.74",
-  "@types/node": "^20.14.10",
-  "postcss": "^8.4.41",
-  "autoprefixer": "^10.4.19"
+    "tailwindcss": "^3.4.9",
+    "postcss": "^8.4.41",
+    "autoprefixer": "^10.4.19",
+    "typescript": "^5.4.0"
   }
 }
