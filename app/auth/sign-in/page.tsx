@@ -1,112 +1,85 @@
-"use client"
+// =============================
 
-import { useEffect, useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
 
-export default function SignInPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [remember, setRemember] = useState(true)
-  const [err, setErr] = useState("")
+async function onSubmit(e: React.FormEvent) {
+e.preventDefault();
+setError(null);
+setLoading(true);
+try {
+// TODO: wire to your auth backend or NextAuth signIn()
+console.log("Sign in", { email, password, remember });
+// Redirect example after success:
+window.location.href = "/connect";
+} catch (err: any) {
+setError("Login failed. Please check your email and password.");
+} finally {
+setLoading(false);
+}
+}
 
-  useEffect(() => {
-    const savedE = localStorage.getItem("hespor_user_email")
-    if (savedE) setEmail(savedE)
-    if (localStorage.getItem("hespor_authed") === "1") window.location.href = "/connect"
-  }, [])
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const savedEmail = (localStorage.getItem("hespor_user_email") || "admin@hespor.com").toLowerCase()
-    const savedPass = localStorage.getItem("hespor_user_password") || "Hespor123!"
-    if (email.trim().toLowerCase() === savedEmail && password === savedPass) {
-      if (remember) localStorage.setItem("hespor_authed", "1")
-      window.location.href = "/connect"
-    } else {
-      setErr("Invalid email or password")
-    }
-  }
+return (
+<div className="min-h-screen flex items-center justify-center bg-[#f8f9fb]">
+<div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-sm">
+<div className="mb-4 flex items-center gap-2">
+<img src="/logo-dark.png" alt="Hespor" className="h-7" />
+<span className="sr-only">HESPOR</span>
+</div>
+<h1 className="mb-1 text-2xl font-bold text-[#0a0a0a]">Log In to HESPOR</h1>
+<p className="mb-5 text-sm text-gray-600">Welcome back! Please enter your details.</p>
 
-  return (
-    <main className="min-h-screen bg-white text-gray-900">
-      {/* Top brand bar */}
-      <div className="w-full border-b border-gray-100">
-        <div className="max-w-md mx-auto px-4 py-6 flex items-center justify-center">
-          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
-        </div>
-      </div>
 
-      {/* Card */}
-      <div className="max-w-md mx-auto px-4 py-8">
-        <h1 className="text-3xl font-semibold text-center">Log In to HESPOR</h1>
-        <div className="mt-6 border-t border-gray-200" />
+<form onSubmit={onSubmit} className="space-y-4">
+<div>
+<label className="block text-sm font-medium text-gray-700">Email</label>
+<input
+type="email"
+required
+value={email}
+onChange={(e) => setEmail(e.target.value)}
+className="mt-1 w-full rounded-xl border p-3 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+placeholder="you@company.com"
+/>
+</div>
+<div>
+<div className="flex items-center justify-between">
+<label className="block text-sm font-medium text-gray-700">Password</label>
+<Link href="/auth/forgot" className="text-xs underline text-[#0a0a0a]">Forgot password?</Link>
+</div>
+<input
+type="password"
+required
+value={password}
+onChange={(e) => setPassword(e.target.value)}
+className="mt-1 w-full rounded-xl border p-3 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+placeholder="••••••••"
+/>
+</div>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              placeholder="Please enter your email"
-              required
-              className="w-full rounded-md border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 px-3 py-2"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium">Password</label>
-              <a href="#" className="text-sm text-emerald-600 hover:text-emerald-700">
-                Forgot password?
-              </a>
-            </div>
-            <input
-              type="password"
-              placeholder="Please enter your password"
-              required
-              className="w-full rounded-md border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 px-3 py-2"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+<label className="flex items-center gap-2 text-sm text-gray-700">
+<input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border" />
+Remember me (if this is a private computer)
+</label>
 
-          {err && <p className="text-sm text-rose-600">{err}</p>}
 
-          <label className="inline-flex items-center gap-2 text-sm select-none">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 text-emerald-600 border-gray-300 rounded"
-            />
-            <span>
-              Remember Me <span className="text-gray-500">(if this is a private computer)</span>
-            </span>
-          </label>
+{error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-          <button
-            type="submit"
-            className="w-full rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 transition"
-          >
-            LOG IN
-          </button>
-        </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          New to HESPOR?{" "}
-          <Link href="/auth/sign-up" className="text-emerald-700 font-medium">
-            Sign Up Now
-          </Link>
-        </p>
-        <p className="mt-2 text-center text-xs text-gray-500">
-          Problems or questions?{" "}
-          <a href="mailto:info@hespor.com" className="text-emerald-700 font-medium">
-            Contact Us
-          </a>
-        </p>
-      </div>
-    </main>
-  )
+<button
+type="submit"
+disabled={loading}
+className={`w-full rounded-xl px-4 py-2 text-white ${loading ? "bg-gray-400" : "bg-[#0a0a0a] hover:bg-black"}`}
+>
+{loading ? "Logging in…" : "Log In"}
+</button>
+</form>
+
+
+<p className="mt-4 text-sm text-gray-600">
+New to HESPOR? <Link href="/auth/sign-up" className="text-[#0a0a0a] underline">Sign Up</Link>
+</p>
+</div>
+</div>
+);
 }
