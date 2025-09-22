@@ -1,75 +1,94 @@
-"use client"
+// -------- file: /app/auth/sign-up/page.tsx --------
+setError("Passwords do not match.");
+return;
+}
+if (!agree) {
+setError("Please accept the Terms to continue.");
+return;
+}
+setLoading(true);
+try {
+// TODO: wire to your auth backend or NextAuth signUp equivalent
+console.log("Sign up", { email });
+window.location.href = "/connect";
+} catch (err: any) {
+setError("Sign up failed. Please try again.");
+} finally {
+setLoading(false);
+}
+}
 
-import { useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
 
-export default function SignUpPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [ok, setOk] = useState(false)
+return (
+<div className="min-h-screen flex items-center justify-center bg-[#f8f9fb]">
+<div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-sm">
+<div className="mb-4 flex items-center gap-2">
+<img src="/logo-dark.png" alt="Hespor" className="h-7" />
+<span className="sr-only">HESPOR</span>
+</div>
+<h1 className="mb-1 text-2xl font-bold text-[#0a0a0a]">Create your HESPOR account</h1>
+<p className="mb-5 text-sm text-gray-600">Start your 10 free chats/week. Upgrade anytime.</p>
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    localStorage.setItem("hespor_user_email", email.trim())
-    localStorage.setItem("hespor_user_password", password)
-    setOk(true)
-    setTimeout(() => {
-      window.location.href = "/auth/sign-in"
-    }, 900)
-  }
 
-  return (
-    <main className="min-h-screen bg-white text-gray-900">
-      {/* Top brand bar */}
-      <div className="w-full border-b border-gray-100">
-        <div className="max-w-md mx-auto px-4 py-6 flex items-center justify-center">
-          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
-        </div>
-      </div>
+<form onSubmit={onSubmit} className="space-y-4">
+<div>
+<label className="block text-sm font-medium text-gray-700">Email</label>
+<input
+type="email"
+required
+value={email}
+onChange={(e) => setEmail(e.target.value)}
+className="mt-1 w-full rounded-xl border p-3 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+placeholder="you@company.com"
+/>
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700">Password</label>
+<input
+type="password"
+required
+value={password}
+onChange={(e) => setPassword(e.target.value)}
+className="mt-1 w-full rounded-xl border p-3 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+placeholder="Create a strong password"
+/>
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+<input
+type="password"
+required
+value={confirm}
+onChange={(e) => setConfirm(e.target.value)}
+className="mt-1 w-full rounded-xl border p-3 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+placeholder="Re-enter your password"
+/>
+</div>
 
-      {/* Card */}
-      <div className="max-w-md mx-auto px-4 py-8">
-        <h1 className="text-3xl font-semibold text-center">Create your HESPOR account</h1>
-        <div className="mt-6 border-t border-gray-200" />
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              placeholder="Please enter your email"
-              required
-              className="w-full rounded-md border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 px-3 py-2"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input
-              type="password"
-              placeholder="Please enter your password"
-              required
-              className="w-full rounded-md border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 px-3 py-2"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+<label className="flex items-center gap-2 text-sm text-gray-700">
+<input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="h-4 w-4 rounded border" />
+I agree to the <a href="/terms" className="underline">Terms</a> and <a href="/privacy" className="underline">Privacy Policy</a>.
+</label>
 
-          <button className="w-full rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 transition">
-            Sign Up
-          </button>
-          {ok && <p className="text-sm text-emerald-700">Saved! Redirecting…</p>}
-        </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Already have an account?{" "}
-          <Link href="/auth/sign-in" className="text-emerald-700 font-medium">
-            Log In
-          </Link>
-        </p>
-      </div>
-    </main>
-  )
+{error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+
+<button
+type="submit"
+disabled={loading}
+className={`w-full rounded-xl px-4 py-2 text-white ${loading ? "bg-gray-400" : "bg-[#0a0a0a] hover:bg-black"}`}
+>
+{loading ? "Creating account…" : "Sign Up"}
+</button>
+</form>
+
+
+<p className="mt-4 text-sm text-gray-600">
+Already have an account? <Link href="/auth/sign-in" className="text-[#0a0a0a] underline">Log In</Link>
+</p>
+</div>
+</div>
+);
 }
