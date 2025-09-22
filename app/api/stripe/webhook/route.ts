@@ -5,35 +5,25 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const sig = req.headers.get("stripe-signature");
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   const sk = process.env.STRIPE_SECRET_KEY;
+  if (!sig || !secret || !sk) return NextResponse.json({ error: "Missing Stripe webhook envs" }, { status: 500 });
 
-  if (!secret || !sk) {
-    return NextResponse.json(
-      { error: "Missing STRIPE_WEBHOOK_SECRET / STRIPE_SECRET_KEY" },
-      { status: 500 }
-    );
-  }
-
+  const raw = await req.text();
   const stripe = new Stripe(sk, { apiVersion: "2024-06-20" });
-
-  const sig = req.headers.get("stripe-signature");
-  if (!sig) return NextResponse.json({ error: "Missing Stripe-Signature" }, { status: 400 });
-
-  const raw = await req.text(); // raw body required
 
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(raw, sig, secret);
   } catch (err: any) {
-    return NextResponse.json({ error: `Webhook signature verification failed: ${err.message}` }, { status: 400 });
+    return NextResponse.json({ error: "Invalid signature: " + err.message }, { status: 400 });
   }
 
-  // Handle the event
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    // TODO: mark the user/account as "Pro" in your DB using session.customer / client_reference_id
-    console.log("Checkout complete:", session.id);
+    // TODO: mark user's plan as "pro" in your datastore (lookup by session.customer or customer_email)
+    console.log("Stripe PRO enabled for session:", session.id);
   }
 
   return NextResponse.json({ received: true });
