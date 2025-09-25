@@ -2,13 +2,16 @@
 
 /**
  * Returns the tenant/brand from URL query.
- * We accept ?brand=... OR use OAuth ?state=... fallback.
+ * Accepts either a URLSearchParams OR a raw "?a=1&b=2" string.
  * Defaults to DECOGAR for MVP.
  */
-export function brandFromQuery(searchParams: URLSearchParams): string {
+export function brandFromQuery(input: string | URLSearchParams): string {
+  const params = typeof input === "string" ? new URLSearchParams(input) : input;
+
   const brand =
-    searchParams.get("brand") ||
-    searchParams.get("state") || // OAuth "state" carries brand in your flow
+    params.get("brand") ||
+    params.get("state") || // OAuth "state" often carries brand
     "DECOGAR";
+
   return String(brand).trim();
 }
