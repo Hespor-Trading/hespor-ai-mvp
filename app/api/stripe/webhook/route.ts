@@ -1,29 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-export async function POST(req: NextRequest) {
-  const sig = req.headers.get("stripe-signature");
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+export async function POST(req: Request) {
   const sk = process.env.STRIPE_SECRET_KEY;
-  if (!sig || !secret || !sk) return NextResponse.json({ error: "Missing Stripe webhook envs" }, { status: 500 });
+  const wh = process.env.STRIPE_WEBHOOK_SECRET;
 
+  if (!sk || !wh) {
+    return NextResponse.json(
+      { error: "Missing Stripe envs (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)" },
+      { status: 500 }
+    );
+  }
+
+  // Read the raw request body for webhook signature verification
   const raw = await req.text();
-  const stripe = new Stripe(sk, { apiVersion: "2024-06-20" });
+  const signature = req.headers.get("stripe-signature") ?? "";
+
+  // ✅ No apiVersion passed (avoids TS union mismatch)
+  const stripe = new Stripe(sk);
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(raw, sig, secret);
+    event = stripe.webhooks.constructEvent(raw, signature, wh);
   } catch (err: any) {
-    return NextResponse.json({ error: "Invalid signature: " + err.message }, { status: 400 });
+    return NextResponse.json(
+      { error: "invalid_signature", message: err?.message || "Invalid signature" },
+      { status: 400 }
+    );
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    // TODO: mark user's plan as "pro" in your datastore (lookup by session.customer or customer_email)
-    console.log("Stripe PRO enabled for session:", session.id);
+  // Handle a few common events (no-ops for MVP)
+  switch (event.type) {
+    case "checkout.session.completed":
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "invoice.payment_succeeded":
+      // TODO: mark user/tenant as paid in your DB
+      break;
+    default:
+      // ignore others
+      break;
   }
 
   return NextResponse.json({ received: true });
