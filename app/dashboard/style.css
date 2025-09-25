@@ -1,93 +1,28 @@
-import "./style.css";
-:root{
-  --bg:#042d2c;
-  --card:#083b3a;
-  --muted:#9edbd0;
-  --text:#eaf7f4;
-  --accent:#ff6b6b;
-  --brand:#00d4a5;
-  --border:#0e4a47;
+/* Dashboard theme vars */
+:root {
+  --bg: #042d2c;
+  --card: #083f3e;
+  --text: #f7faf9;
+  --muted: #bfe5dd;
+  --accent: #10b981; /* emerald-500 */
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
-
-.hz-shell{min-height:100vh}
-.hz-topbar{
-  height:64px;display:flex;align-items:center;justify-content:space-between;
-  padding:0 20px;border-bottom:1px solid var(--border);background:rgba(0,0,0,.12)
-}
-.hz-logo{font-weight:800;letter-spacing:.5px}
-.hz-logo .dot{width:10px;height:10px;border-radius:2px;background:var(--brand);display:inline-block;margin-right:8px}
-.hz-nav{display:flex;gap:14px}
-.hz-link{color:var(--muted);text-decoration:none;font-size:14px}
-.hz-link.active,.hz-link:hover{color:var(--text)}
-
-.hz-grid{
-  padding:24px;display:grid;gap:24px;
-  grid-template-columns: 1fr; max-width:1200px; margin:0 auto;
-}
-@media (min-width: 1024px){ .hz-grid{ grid-template-columns: 2fr 1fr; } }
-
-.hz-left{display:flex;flex-direction:column;gap:24px}
-
-.hz-card{
-  background:linear-gradient(180deg, rgba(16,68,66,.7), rgba(8,59,58,.9));
-  border:1px solid var(--border);border-radius:16px;padding:18px;
-  box-shadow:0 10px 24px rgba(0,0,0,.25)
-}
-.hz-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.hz-card h3{margin:0;font-size:18px;letter-spacing:.3px}
-.hz-pill{border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
-.hz-pill.accent{border-color:var(--accent);color:var(--text);background:rgba(255,107,107,.15)}
-
-.hz-muted{color:var(--muted);font-size:13px;margin:6px 0 14px}
-
-.hz-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.hz-form label{display:flex;flex-direction:column;gap:6px;font-size:13px}
-.hz-form input{
-  background:#0a4543;border:1px solid var(--border);color:var(--text);padding:10px;border-radius:10px;outline:none
-}
-@media (max-width: 640px){.hz-form{grid-template-columns:1fr}}
-
-.hz-actions{display:flex;gap:12px;margin-top:8px}
-
-.hz-btn{
-  appearance:none;border:none;cursor:pointer;border-radius:12px;
-  background:#115a57;color:var(--text);padding:10px 14px;font-weight:600;
-  border:1px solid var(--border);transition:all .15s ease
-}
-.hz-btn:hover{transform:translateY(-1px);background:#156866}
-.hz-btn.primary{background:linear-gradient(90deg,var(--brand),#07b68e);color:#012725;border:none}
-.hz-btn.primary:hover{filter:brightness(1.05)}
-
-.hz-select{
-  background:#0a4543;border:1px solid var(--border);color:var(--text);
-  border-radius:10px;padding:6px 10px
+html, body {
+  background: var(--bg);
+  color: var(--text);
 }
 
-.hz-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
-.hz-list li{color:var(--text);opacity:.9}
-
-.hz-chat{display:flex;flex-direction:column;gap:12px}
-.hz-chat-body{min-height:160px;border:1px dashed var(--border);border-radius:12px;padding:14px}
-.hz-placeholder{color:var(--muted);font-size:13px;opacity:.9}
-.hz-bubble{max-width:100%;margin-bottom:10px}
-.hz-bubble.bot{background:#0b4543;border:1px solid var(--border);border-radius:12px;padding:10px}
-.hz-bubble-title{font-weight:700;margin-bottom:4px;color:var(--brand)}
-.hz-bubble-text{white-space:pre-wrap}
-
-.hz-chat-input{display:flex;gap:8px}
-.hz-chat-input textarea{
-  flex:1;resize:vertical;min-height:54px;max-height:220px;
-  background:#0a4543;border:1px solid var(--border);color:var(--text);padding:10px;border-radius:10px
+.dashboard-card {
+  background: var(--card);
+  color: var(--text);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  padding: 1rem;
 }
 
-.hz-chart-placeholder{
-  display:grid;grid-template-columns:repeat(7,1fr);gap:10px;height:140px;margin-top:8px
-}
-.hz-chart-placeholder .bar{
-  align-self:end;background:linear-gradient(180deg,var(--brand),#0aa88a);
-  border-radius:8px
+.dashboard-muted { color: var(--muted); }
+
+.dashboard-accent {
+  color: var(--accent);
+  font-weight: 600;
 }
