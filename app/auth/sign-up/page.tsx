@@ -1,9 +1,41 @@
 "use client";
 
-import { signUp } from "next-auth/react";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
 import Image from "next/image";
 
 export default function SignUpPage() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+
+    const form = e.currentTarget as any;
+    const email = form.email.value;
+    const password = form.password.value;
+
+    // Call your custom API to create a new user
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    setLoading(false);
+
+    if (res.ok) {
+      // Automatically sign them in after registration
+      await signIn("credentials", {
+        email,
+        password,
+        callbackUrl: "/connect",
+      });
+    } else {
+      alert("Sign-up failed. Please try again.");
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-500">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
@@ -18,18 +50,10 @@ export default function SignUpPage() {
         </div>
 
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
-          Log In to HESPOR
+          Sign Up for HESPOR
         </h1>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const email = (e.currentTarget as any).email.value;
-            const password = (e.currentTarget as any).password.value;
-            signUp("credentials", { email, password, callbackUrl: "/connect" });
-          }}
-          className="space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="email"
             name="email"
@@ -46,16 +70,17 @@ export default function SignUpPage() {
           />
           <button
             type="submit"
-            className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition"
+            disabled={loading}
+            className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50"
           >
-            Log In
+            {loading ? "Creating account..." : "Sign Up"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          New to HESPOR?{" "}
-          <a href="/auth/sign-up" className="font-medium text-emerald-600 hover:underline">
-            Sign Up
+          Already have an account?{" "}
+          <a href="/auth/sign-in" className="font-medium text-emerald-600 hover:underline">
+            Log In
           </a>
         </p>
       </div>
