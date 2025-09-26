@@ -36,7 +36,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/sign-in`,
+         emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
       },
     });
     if (error) { setErr(error.message); setLoading(false); return; }
