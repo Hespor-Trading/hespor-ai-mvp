@@ -32,7 +32,6 @@ export default function SignUpPage() {
 
     const sb = supabaseBrowser();
 
-    // Create auth user
     const { error } = await sb.auth.signUp({
       email,
       password,
@@ -42,14 +41,11 @@ export default function SignUpPage() {
     });
     if (error) { setErr(error.message); setLoading(false); return; }
 
-    // Save profile now if session exists (if not, it will be completed on first login)
+    // if we already have a user object (sometimes true right after signUp)
     try {
       const { data: { user } } = await sb.auth.getUser();
       if (user?.id) {
-        await sb.from("profiles").upsert({
-          id: user.id,
-          first_name, last_name, business_name, store_brand,
-        });
+        await sb.from("profiles").upsert({ id: user.id, first_name, last_name, business_name, store_brand });
       }
     } catch {}
 
@@ -61,7 +57,8 @@ export default function SignUpPage() {
     await supabaseBrowser().auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/dashboard`,
+        // 🔑 send back to our OAuth callback page
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
         queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
@@ -111,7 +108,11 @@ export default function SignUpPage() {
 
               {err && <p className="text-sm text-red-600">{err}</p>}
 
-              <button type="submit" disabled={loading} className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50"
+              >
                 {loading ? "Creating account..." : "Sign Up"}
               </button>
             </form>
