@@ -1,24 +1,56 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const sbAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const messages = body?.messages || [
-      { role: "system", content: "You are Hespor Ads Assistant." },
-      { role: "user", content: "Hello" },
-    ];
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
+  const { userId, message } = await req.json();
+
+  // simple weekly quota (free: 10)
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay()); // Sun week start
+  const week = weekStart.toISOString().slice(0,10);
+
+  const { data: row } = await sbAdmin.from("chat_usage").select("*").eq("user_id", userId).maybeSingle();
+
+  if (!row) {
+    await sbAdmin.from("chat_usage").insert({ user_id: userId, week_start: week, used: 0 });
+  } else {
+    // reset if new week
+    if (row.week_start !== week) {
+      await sbAdmin.from("chat_usage").update({ week_start: week, used: 0 }).eq("user_id", userId);
     }
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const completion = await openai.chat.completions.create({ model: MODEL, messages, temperature: 0.2 });
-    return NextResponse.json({ ok: true, reply: completion.choices[0]?.message });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
+
+  const { data: usage } = await sbAdmin.from("chat_usage").select("*").eq("user_id", userId).maybeSingle();
+
+  // check plan for unlimited
+  const { data: prof } = await sbAdmin.from("profiles").select("plan").eq("id", userId).maybeSingle();
+  const isPro = prof?.plan === "pro";
+  if (!isPro && (usage?.used ?? 0) >= 10) {
+    return new Response(JSON.stringify({ error: "Free limit reached (10 chats/week). Upgrade to continue." }), { status: 402 });
+  }
+
+  // TODO: fetch recent Amazon stats for context (after your OAuth is fully wired)
+  const system = `You are HESPOR AI. Be concise and practical. If data is missing, say so.`;
+
+  const completion = await openai.chat.completions.create({
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: message }
+    ],
+  });
+
+  // increment usage if not pro
+  if (!isPro) {
+    await sbAdmin.rpc("noop"); // placeholder to keep connection warm
+    await sbAdmin.from("chat_usage").update({ used: (usage?.used ?? 0) + 1, updated_at: new Date().toISOString() }).eq("user_id", userId);
+  }
+
+  const text = completion.choices[0]?.message?.content ?? "No answer.";
+  return new Response(JSON.stringify({ text }));
 }
