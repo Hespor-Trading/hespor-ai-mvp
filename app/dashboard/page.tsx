@@ -5,60 +5,47 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 import Chat from "@/app/components/Chat";
 
-// ...
-const [syncing, setSyncing] = useState(false);
-
-useEffect(() => {
-  // If coming right after first connect, show a friendly setup overlay
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("first") === "1") {
-      setSyncing(true);
-      // hide after a couple of minutes; adjust as needed once your data jobs are wired
-      const t = setTimeout(() => setSyncing(false), 120000);
-      return () => clearTimeout(t);
-    }
-  }
-}, []);
-// ...
+type Plan = "free" | "pro" | "unknown";
 
 export default function Dashboard() {
   const router = useRouter();
-  const [plan, setPlan] = useState<"free" | "pro" | "unknown">("unknown");
+  const [plan, setPlan] = useState<Plan>("unknown");
+  const [syncing, setSyncing] = useState(false);
 
+  // Auth + connection checks
   useEffect(() => {
     (async () => {
       const sb = supabaseBrowser();
+
+      // must be logged in
       const { data: { session } } = await sb.auth.getSession();
-      if (!session) return router.replace("/auth/sign-in");
+      if (!session) { router.replace("/auth/sign-in"); return; }
 
-      // If not connected → go to /connect
-      const { data: ads } = await sb
-        .from("amazon_ads_credentials")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+      // require BOTH connections; otherwise go to /connect
+      const [{ data: ads }, { data: sp }] = await Promise.all([
+        sb.from("amazon_ads_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle(),
+        sb.from("spapi_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle()
+      ]);
+      if (!ads || !sp) { router.replace("/connect"); return; }
 
-      const { data: sp } = await sb
-        .from("spapi_credentials")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+      // load plan
+      const { data: prof } = await sb.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
+      setPlan(((prof?.plan as Plan) ?? "free"));
 
-      if (!ads || !sp) return router.replace("/connect");
-
-      const { data: prof } = await sb
-        .from("profiles")
-        .select("plan")
-        .eq("id", session.user.id)
-        .maybeSingle();
-
-      setPlan((prof?.plan as any) ?? "free");
+      // show first-sync overlay when arriving from /connect
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("first") === "1") {
+          setSyncing(true);
+          const t = setTimeout(() => setSyncing(false), 120000); // ~2 minutes
+          return () => clearTimeout(t);
+        }
+      }
     })();
   }, [router]);
 
+  // Stripe checkout
   async function goCheckout() {
-    // attach the session user to the checkout
     const { data: { user } } = await supabaseBrowser().auth.getUser();
     if (!user) return;
     window.location.href = `/api/checkout?uid=${user.id}`;
@@ -82,7 +69,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* CTA or graph */}
+        {/* top-left CTA or sales graph placeholder */}
         {plan === "free" ? (
           <div className="rounded-2xl bg-white p-6 shadow mb-6">
             <h2 className="text-lg font-semibold mb-2">Connect to HESPOR optimization algo</h2>
@@ -101,11 +88,13 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Activity */}
+        {/* activity section */}
         <div className="rounded-2xl bg-white p-6 shadow">
           <h2 className="text-lg font-semibold mb-2">Latest updates</h2>
           {plan === "free" ? (
-            <p className="text-gray-600">As soon as the algo is activated, the most recent updates will appear here.</p>
+            <p className="text-gray-600">
+              As soon as the algo is activated, the most recent updates will appear here.
+            </p>
           ) : (
             <ul className="list-disc ml-5 text-gray-700 space-y-1">
               <li>Optimization activity will be listed here in natural language.</li>
@@ -120,7 +109,7 @@ export default function Dashboard() {
       </div>
 
       {/* RIGHT DRAWER */}
-      <div id="drawer" className="hidden fixed right-4 top-16 z-50 w-72 rounded-xl bg-white shadow p-4">
+      <div id="drawer" className="hidden fixed right-4 top-16 z-40 w-72 rounded-xl bg-white shadow p-4">
         <h3 className="font-semibold mb-2">Account</h3>
         <ul className="space-y-2 text-sm">
           <li><a className="text-emerald-700 underline" href="/api/billing">Billing (update card)</a></li>
@@ -128,6 +117,19 @@ export default function Dashboard() {
           <li><a className="text-emerald-700 underline" href="mailto:support@hespor.com">Support: support@hespor.com</a></li>
         </ul>
       </div>
+
+      {/* FIRST-SYNC OVERLAY */}
+      {syncing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/10">
+          <div className="max-w-md rounded-xl bg-emerald-600 p-6 text-white shadow-xl">
+            <h3 className="text-xl font-semibold mb-2">Setting up your dashboard…</h3>
+            <p className="text-emerald-50">
+              We’re securely fetching your Amazon Ads and SP-API data. This first sync can take a couple of minutes.
+              You can keep this tab open — your dashboard will appear as soon as data arrives.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
