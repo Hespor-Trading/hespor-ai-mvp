@@ -1,24 +1,28 @@
+// app/api/checkout/route.ts
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const sbAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const sbAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(req: NextRequest) {
-  // get current user (via a quick client-side fetch is easier, but we'll keep it simple here)
-  // In production, pass user ID as a query param from the client after calling supabase.auth.getUser()
   const url = new URL(req.url);
   const uid = url.searchParams.get("uid");
   if (!uid) return new Response("Missing uid", { status: 400 });
 
+  // If we already have a customer id, reuse it
   const { data: prof } = await sbAdmin.from("profiles").select("stripe_customer_id").eq("id", uid).maybeSingle();
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: process.env.STRIPE_PRICE_ID_49!, quantity: 1 }],
     customer: prof?.stripe_customer_id || undefined,
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    // IMPORTANT: after checkout, we hit a server route to store the customer id and set plan=pro
+    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/stripe/activate?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
     allow_promotion_codes: true,
     metadata: { uid },
