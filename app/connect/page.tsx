@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";          // ← removed useSearchParams
 import { supabaseBrowser } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";               // ← add this
 
 export default function ConnectPage() {
   const router = useRouter();
-  const search = useSearchParams();
 
   const [uid, setUid] = useState<string | null>(null);
   const [adsOk, setAdsOk] = useState(false);
@@ -33,12 +34,11 @@ export default function ConnectPage() {
       };
 
       await check();
-      // After coming back from callbacks we may need a moment, so poll a few times
       timer = setInterval(check, 2000);
       setTimeout(() => clearInterval(timer), 15000);
     })();
     return () => clearInterval(timer);
-  }, [router, search]);
+  }, [router]);                                       // ← removed `search` from deps
 
   // 2) If both connected → go to dashboard with first-load flag
   useEffect(() => {
@@ -50,7 +50,6 @@ export default function ConnectPage() {
   // Build OAuth URLs (NA)
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com";
 
-  // Amazon Ads LWA (includes state=uid so callback can attach even if session cookie is missing)
   const adsAuthUrl =
     "https://www.amazon.com/ap/oa"
     + `?client_id=${process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID}`
@@ -59,7 +58,6 @@ export default function ConnectPage() {
     + `&redirect_uri=${encodeURIComponent(`${base}/api/ads/callback`)}`
     + `&state=${encodeURIComponent(uid)}`;
 
-  // SP-API Consent (Seller Central). Your app must be approved to work for external sellers.
   const spAuthUrl =
     "https://sellercentral.amazon.com/apps/authorize/consent"
     + `?application_id=${encodeURIComponent(process.env.NEXT_PUBLIC_SP_APP_ID as string)}`
@@ -75,7 +73,6 @@ export default function ConnectPage() {
         </p>
 
         <div className="space-y-4">
-          {/* ADS button */}
           <a
             href={adsAuthUrl}
             className={[
@@ -87,7 +84,6 @@ export default function ConnectPage() {
             {adsOk ? "✓ Amazon Ads connected" : "1) Authorize Amazon Ads"}
           </a>
 
-          {/* SP-API button */}
           <a
             href={spAuthUrl}
             className={[
