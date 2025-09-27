@@ -1,17 +1,54 @@
-// lib/amazon.ts
+import { createClient } from "@supabase/supabase-js";
 
-/**
- * Returns the tenant/brand from URL query.
- * Accepts either a URLSearchParams OR a raw "?a=1&b=2" string.
- * Defaults to DECOGAR for MVP.
- */
-export function brandFromQuery(input: string | URLSearchParams): string {
-  const params = typeof input === "string" ? new URLSearchParams(input) : input;
+const LWA_TOKEN_URL = "https://api.amazon.com/auth/o2/token";
 
-  const brand =
-    params.get("brand") ||
-    params.get("state") || // OAuth "state" often carries brand
-    "DECOGAR";
+export async function upsertAdsTokens({
+  userId, brand = "default", access_token, refresh_token, expires_in, region = "na"
+}: { userId: string; brand?: string; access_token: string; refresh_token: string; expires_in: number; region?: string; }) {
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const expires_at = new Date(Date.now() + expires_in * 1000).toISOString();
 
-  return String(brand).trim();
+  // profile_id unknown at consent time (optional to fetch later)
+  await sb.from("amazon_ads_credentials").upsert({
+    user_id: userId, brand, access_token, refresh_token, expires_at, region
+  });
+}
+
+export async function upsertSpTokens({
+  userId, brand = "default", refresh_token, region = "na"
+}: { userId: string; brand?: string; refresh_token: string; region?: string; }) {
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  await sb.from("spapi_credentials").upsert({
+    user_id: userId, brand, refresh_token, region
+  });
+}
+
+export async function exchangeAdsCode(code: string, redirectUri: string) {
+  const res = await fetch(LWA_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body:
+      `grant_type=authorization_code` +
+      `&code=${encodeURIComponent(code)}` +
+      `&client_id=${encodeURIComponent(process.env.AMAZON_ADS_CLIENT_ID!)}` +
+      `&client_secret=${encodeURIComponent(process.env.AMAZON_ADS_CLIENT_SECRET!)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}`
+  });
+  if (!res.ok) throw new Error(`Ads token exchange failed: ${res.status}`);
+  return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number; }>;
+}
+
+export async function exchangeSpCode(spapi_oauth_code: string, redirectUri: string) {
+  const res = await fetch(LWA_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body:
+      `grant_type=authorization_code` +
+      `&code=${encodeURIComponent(spapi_oauth_code)}` +
+      `&client_id=${encodeURIComponent(process.env.SP_LWA_CLIENT_ID!)}` +
+      `&client_secret=${encodeURIComponent(process.env.SP_LWA_CLIENT_SECRET!)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}`
+  });
+  if (!res.ok) throw new Error(`SP token exchange failed: ${res.status}`);
+  return res.json() as Promise<{ refresh_token: string; access_token?: string; expires_in?: number; }>;
 }
