@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
+
+const strongPw = (pw: string) =>
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,64})/.test(pw); // ≥8, upper, lower, number
 
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -19,7 +24,6 @@ export default function SignUpPage() {
     const email2 = f.email2.value.trim();
     const password = f.password.value;
     const password2 = f.password2.value;
-
     const first_name = f.first_name.value.trim();
     const last_name = f.last_name.value.trim();
     const business_name = f.business_name.value.trim();
@@ -29,35 +33,38 @@ export default function SignUpPage() {
     if (!terms) { setErr("Please accept the Terms & Privacy."); setLoading(false); return; }
     if (email !== email2) { setErr("Emails do not match."); setLoading(false); return; }
     if (password !== password2) { setErr("Passwords do not match."); setLoading(false); return; }
+    if (!strongPw(password)) {
+      setErr("Password must be 8+ chars and include upper, lower, and a number.");
+      setLoading(false); return;
+    }
 
     const sb = supabaseBrowser();
-
-    const { error } = await sb.auth.signUp({
+    const { data, error } = await sb.auth.signUp({
       email,
       password,
       options: {
-         emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
+        data: { first_name, last_name, business_name, store_brand },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
       },
     });
-    if (error) { setErr(error.message); setLoading(false); return; }
-
-    // if we already have a user object (sometimes true right after signUp)
-    try {
-      const { data: { user } } = await sb.auth.getUser();
-      if (user?.id) {
-        await sb.from("profiles").upsert({ id: user.id, first_name, last_name, business_name, store_brand });
-      }
-    } catch {}
 
     setLoading(false);
-    setOk(true);
+    if (error) {
+      const m = error.message.toLowerCase();
+      if (m.includes("already registered")) setErr("That email is already registered. Try logging in.");
+      else setErr(error.message);
+      return;
+    }
+
+    // If email confirmation is ON, show success message; if OFF, go to login
+    if (data?.user && !data?.session) setOk(true);
+    else router.push("/auth/sign-in?new=1");
   }
 
   async function handleGoogle() {
     await supabaseBrowser().auth.signInWithOAuth({
       provider: "google",
       options: {
-        // 🔑 send back to our OAuth callback page
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
         queryParams: { access_type: "offline", prompt: "consent" },
       },
@@ -71,11 +78,13 @@ export default function SignUpPage() {
           <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
         </div>
 
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Sign Up for HESPOR</h1>
+        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+          Sign Up for HESPOR
+        </h1>
 
         {ok ? (
           <p className="text-center text-gray-700">
-            We sent a confirmation link to your email. After verifying, log in.
+            We sent a confirmation link to your email. After verifying, please log in.
           </p>
         ) : (
           <>
@@ -121,7 +130,9 @@ export default function SignUpPage() {
 
         <p className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <a href="/auth/sign-in" className="font-medium text-emerald-600 hover:underline">Log In</a>
+          <a href="/auth/sign-in" className="font-medium text-emerald-600 hover:underline">
+            Log In
+          </a>
         </p>
       </div>
     </div>
