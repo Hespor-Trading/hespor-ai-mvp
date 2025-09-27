@@ -65,7 +65,7 @@ export default function ConnectPage() {
     + `&redirect_uri=${encodeURIComponent(`${base}/api/sp/callback`)}`;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-emerald-50">
+    <div className="min-h-screen flex items-center justify-center bg-emerald-600">
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow">
         <h1 className="text-3xl font-bold mb-2">Connect your Amazon account</h1>
         <p className="text-gray-600 mb-8">
