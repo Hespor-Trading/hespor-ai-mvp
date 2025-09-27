@@ -10,11 +10,23 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  async function routeAfterLogin() {
+    const sb = supabaseBrowser();
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user?.id) { router.push("/auth/sign-in"); return; }
+
+    const { count } = await sb
+      .from("spapi_credentials")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if (!count || count === 0) router.push("/connect");
+    else router.push("/dashboard");
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setErr("");
-    setLoading(true);
-
+    setErr(""); setLoading(true);
     const f = e.currentTarget as any;
     const email = f.email.value.trim();
     const password = f.password.value;
@@ -22,14 +34,13 @@ export default function SignInPage() {
     const { error } = await supabaseBrowser().auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { setErr(error.message); return; }
-    router.push("/dashboard");
+    await routeAfterLogin();
   }
 
   async function handleGoogle() {
     await supabaseBrowser().auth.signInWithOAuth({
       provider: "google",
       options: {
-        // 🔑 send back to our OAuth callback page
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
         queryParams: { access_type: "offline", prompt: "consent" },
       },
@@ -42,14 +53,9 @@ export default function SignInPage() {
         <div className="flex justify-center mb-6">
           <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
         </div>
-
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Log In to HESPOR</h1>
 
-        <button
-          onClick={handleGoogle}
-          type="button"
-          className="w-full mb-4 rounded-lg border border-gray-300 py-2 font-medium hover:bg-gray-50 transition"
-        >
+        <button onClick={handleGoogle} type="button" className="w-full mb-4 rounded-lg border border-gray-300 py-2 font-medium hover:bg-gray-50 transition">
           Continue with Google
         </button>
 
@@ -57,11 +63,7 @@ export default function SignInPage() {
           <input type="email" name="email" placeholder="Email" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           <input type="password" name="password" placeholder="Password" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           {err && <p className="text-sm text-red-600">{err}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading} className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50">
             {loading ? "Signing in…" : "Log In"}
           </button>
         </form>
