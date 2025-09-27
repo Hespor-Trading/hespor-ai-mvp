@@ -5,6 +5,23 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 import Chat from "@/app/components/Chat";
 
+// ...
+const [syncing, setSyncing] = useState(false);
+
+useEffect(() => {
+  // If coming right after first connect, show a friendly setup overlay
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("first") === "1") {
+      setSyncing(true);
+      // hide after a couple of minutes; adjust as needed once your data jobs are wired
+      const t = setTimeout(() => setSyncing(false), 120000);
+      return () => clearTimeout(t);
+    }
+  }
+}, []);
+// ...
+
 export default function Dashboard() {
   const router = useRouter();
   const [plan, setPlan] = useState<"free" | "pro" | "unknown">("unknown");
