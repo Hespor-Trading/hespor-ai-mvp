@@ -1,6 +1,5 @@
 "use client";
-export const dynamic = "force-dynamic"; // don't prerender
-export const revalidate = 0;
+export const dynamic = "force-dynamic"; // run client-side; don't prerender
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -17,7 +16,7 @@ export default function Success() {
         return;
       }
 
-      // MVP: flag plan as pro on success
+      // MVP: mark plan as pro and go back to dashboard
       await supabaseBrowser()
         .from("profiles")
         .update({ plan: "pro" })
