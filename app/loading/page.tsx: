@@ -1,0 +1,10 @@
+export default function LoadingPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-emerald-50">
+      <div className="rounded-2xl bg-white p-8 shadow text-center">
+        <h1 className="text-xl font-semibold mb-2">Preparing your dashboard…</h1>
+        <p className="text-gray-600">This can take a minute while we sync your Amazon data.</p>
+      </div>
+    </div>
+  );
+}
