@@ -7,7 +7,7 @@ import Chat from "@/app/components/Chat";
 
 export default function Dashboard() {
   const router = useRouter();
-  const [plan, setPlan] = useState<"free"|"pro"|"unknown">("unknown");
+  const [plan, setPlan] = useState<"free" | "pro" | "unknown">("unknown");
 
   useEffect(() => {
     (async () => {
@@ -15,18 +15,36 @@ export default function Dashboard() {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) return router.replace("/auth/sign-in");
 
-      // if not connected → go to /connect
-      const { data: ads } = await sb.from("amazon_ads_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle();
-      const { data: sp }  = await sb.from("spapi_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle();
+      // If not connected → go to /connect
+      const { data: ads } = await sb
+        .from("amazon_ads_credentials")
+        .select("user_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      const { data: sp } = await sb
+        .from("spapi_credentials")
+        .select("user_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
       if (!ads || !sp) return router.replace("/connect");
 
-      const { data: prof } = await sb.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("plan")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
       setPlan((prof?.plan as any) ?? "free");
     })();
   }, [router]);
 
-  function goCheckout() {
-    window.location.href = "/api/checkout";
+  async function goCheckout() {
+    // attach the session user to the checkout
+    const { data: { user } } = await supabaseBrowser().auth.getUser();
+    if (!user) return;
+    window.location.href = `/api/checkout?uid=${user.id}`;
   }
 
   if (plan === "unknown") return null;
@@ -47,12 +65,14 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* top-left CTA or sales graph placeholder */}
+        {/* CTA or graph */}
         {plan === "free" ? (
           <div className="rounded-2xl bg-white p-6 shadow mb-6">
             <h2 className="text-lg font-semibold mb-2">Connect to HESPOR optimization algo</h2>
             <p className="text-gray-600 mb-4">Unlock daily optimizations, unlimited chat, and activity feed.</p>
-            <button onClick={goCheckout} className="rounded-lg bg-emerald-600 px-4 py-2 text-white">Upgrade $49/mo</button>
+            <button onClick={goCheckout} className="rounded-lg bg-emerald-600 px-4 py-2 text-white">
+              Upgrade $49/mo
+            </button>
           </div>
         ) : (
           <div className="rounded-2xl bg-white p-6 shadow mb-6">
@@ -64,13 +84,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* activity section */}
+        {/* Activity */}
         <div className="rounded-2xl bg-white p-6 shadow">
           <h2 className="text-lg font-semibold mb-2">Latest updates</h2>
           {plan === "free" ? (
-            <p className="text-gray-600">
-              As soon as the algo is activated, the most recent updates will appear here.
-            </p>
+            <p className="text-gray-600">As soon as the algo is activated, the most recent updates will appear here.</p>
           ) : (
             <ul className="list-disc ml-5 text-gray-700 space-y-1">
               <li>Optimization activity will be listed here in natural language.</li>
