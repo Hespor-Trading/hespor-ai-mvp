@@ -1,69 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
-import { secrets } from "@/lib/aws";
-import { brandFromQuery } from "@/lib/amazon";
+import { NextResponse } from "next/server";
+import { exchangeAdsCode, upsertAdsTokens } from "@/lib/amazon";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state"); // we passed userId here
+  const error = url.searchParams.get("error");
 
-// Exchange code for refresh token via Amazon Ads "Login With Amazon" token endpoint
-async function exchange(code: string) {
-  const res = await fetch("https://api.amazon.com/auth/o2/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: process.env.ADS_CLIENT_ID!,
-      client_secret: process.env.ADS_CLIENT_SECRET!,
-      redirect_uri: process.env.ADS_REDIRECT_URI!,
-    }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ refresh_token: string; access_token: string; expires_in: number }>;
-}
+  if (error) {
+    return NextResponse.redirect(new URL("/connect?error=ads_denied", url.origin));
+  }
+  if (!code || !state) {
+    return NextResponse.redirect(new URL("/connect?error=ads_missing_code", url.origin));
+  }
 
-export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    if (!code) return NextResponse.json({ error: "Missing code" }, { status: 400 });
-
-    const brand = brandFromQuery(url.search);
-    const token = await exchange(code);
-
-    const name = `amazon-ads/credentials/${brand.toLowerCase()}`;
-    const sm = secrets();
-
-    // Create or update secret
-    const payload = {
-      client_id: process.env.ADS_CLIENT_ID,
-      client_secret: process.env.ADS_CLIENT_SECRET,
-      refresh_token: token.refresh_token,
-      profile_id: "2819081650104503",
-      api_region: process.env.ADS_REGION || "na",
-    };
-
-    // lazy create/update
-    const put = await sm.send(
-      new (await import("@aws-sdk/client-secrets-manager")).PutSecretValueCommand({
-        SecretId: name,
-        SecretString: JSON.stringify(payload),
-      })
-    ).catch(async (e: any) => {
-      if (String(e?.name) === "ResourceNotFoundException") {
-        return sm.send(
-          new (await import("@aws-sdk/client-secrets-manager")).CreateSecretCommand({
-            Name: name,
-            SecretString: JSON.stringify(payload),
-          })
-        );
-      }
-      throw e;
+    const redirectUri = process.env.AMAZON_ADS_REDIRECT!;
+    const tok = await exchangeAdsCode(code, redirectUri);
+    await upsertAdsTokens({
+      userId: state,
+      access_token: tok.access_token,
+      refresh_token: tok.refresh_token,
+      expires_in: tok.expires_in,
+      region: process.env.AMAZON_ADS_REGION || "na",
     });
 
-    console.log("Saved Ads credentials:", put?.$metadata?.httpStatusCode);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/connect?ads=ok&brand=${brand}`);
-  } catch (e: any) {
-    return NextResponse.json({ error: "Ads callback failed", detail: String(e?.message || e) }, { status: 500 });
+    // back to connect to finish SP-API
+    return NextResponse.redirect(new URL("/connect?ads=ok", url.origin));
+  } catch (e) {
+    return NextResponse.redirect(new URL("/connect?error=ads_exchange_failed", url.origin));
   }
 }
