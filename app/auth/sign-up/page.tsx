@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
@@ -11,8 +11,17 @@ const strongPw = (pw: string) =>
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [ok, setOk] = useState(false);
+  const [ok, setOk] = useState(false);                // show “check your email” state
+  const [cooldown, setCooldown] = useState(0);        // seconds left to allow resend
+  const emailRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
+
+  // simple countdown for resend button
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,9 +65,14 @@ export default function SignUpPage() {
       return;
     }
 
-    // If email confirmation is ON, show success message; if OFF, go to login
-    if (data?.user && !data?.session) setOk(true);
-    else router.push("/auth/sign-in?new=1");
+    // If email confirmation is ON, show success message + enable resend after 60s
+    if (data?.user && !data?.session) {
+      setOk(true);
+      setCooldown(60); // start 60s cooldown before first resend
+    } else {
+      // If confirmation is OFF, account is created & session exists → go login anyway per your flow
+      router.push("/auth/sign-in?new=1");
+    }
   }
 
   async function handleGoogle() {
@@ -69,6 +83,27 @@ export default function SignUpPage() {
         queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
+  }
+
+  async function resendConfirmation() {
+    setErr("");
+    const email = emailRef.current?.value?.trim();
+    if (!email) { setErr("Enter your email above first."); return; }
+
+    const { error } = await supabaseBrowser().auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    // sent → lock button again for 60s
+    setCooldown(60);
   }
 
   return (
@@ -83,9 +118,23 @@ export default function SignUpPage() {
         </h1>
 
         {ok ? (
-          <p className="text-center text-gray-700">
-            We sent a confirmation link to your email. After verifying, please log in.
-          </p>
+          <div className="text-center">
+            <p className="text-gray-700">
+              We sent a confirmation link to your email. After verifying, please log in.
+            </p>
+
+            <button
+              onClick={resendConfirmation}
+              disabled={cooldown > 0}
+              className="mt-4 w-full rounded-lg border border-gray-300 py-2 font-medium hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend confirmation email"}
+            </button>
+
+            <p className="text-xs text-gray-500 mt-2">
+              Tip: check your Spam/Junk folder. Outlook sometimes delays these.
+            </p>
+          </div>
         ) : (
           <>
             <button
@@ -104,7 +153,14 @@ export default function SignUpPage() {
               <input name="business_name" placeholder="Business / Company name" className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               <input name="store_brand" placeholder="Amazon store / brand (optional)" className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
 
-              <input type="email" name="email" placeholder="Email" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <input
+                ref={emailRef}
+                type="email"
+                name="email"
+                placeholder="Email"
+                required
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
               <input type="email" name="email2" placeholder="Confirm email" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
 
               <input type="password" name="password" placeholder="Password" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
