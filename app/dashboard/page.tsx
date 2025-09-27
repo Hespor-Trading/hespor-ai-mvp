@@ -1,21 +1,97 @@
 "use client";
-import Link from "next/link";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase";
+import Chat from "@/app/components/Chat";
 
 export default function Dashboard() {
+  const router = useRouter();
+  const [plan, setPlan] = useState<"free"|"pro"|"unknown">("unknown");
+
+  useEffect(() => {
+    (async () => {
+      const sb = supabaseBrowser();
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return router.replace("/auth/sign-in");
+
+      // if not connected → go to /connect
+      const { data: ads } = await sb.from("amazon_ads_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle();
+      const { data: sp }  = await sb.from("spapi_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle();
+      if (!ads || !sp) return router.replace("/connect");
+
+      const { data: prof } = await sb.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
+      setPlan((prof?.plan as any) ?? "free");
+    })();
+  }, [router]);
+
+  function goCheckout() {
+    window.location.href = "/api/checkout";
+  }
+
+  if (plan === "unknown") return null;
+
   return (
-    <div className="min-h-screen bg-emerald-50 p-6">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="mt-6 rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-lg font-semibold mb-2">HESPOR Automation</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Connect your Amazon account to enable Ads & SP-API. By connecting, you agree to our{" "}
-            <a href="/terms" className="text-emerald-600 underline">Terms & Conditions</a>.
-          </p>
-          <Link href="/connect" className="inline-block rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700">
-            Connect now
-          </Link>
+    <div className="min-h-screen grid grid-cols-12">
+      {/* LEFT COLUMN */}
+      <div className="col-span-12 lg:col-span-8 p-6 bg-emerald-50">
+        {/* top bar */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <button
+            onClick={() => document.getElementById("drawer")?.classList.toggle("hidden")}
+            className="rounded-md border px-3 py-1"
+            aria-label="Menu"
+          >
+            ☰
+          </button>
         </div>
+
+        {/* top-left CTA or sales graph placeholder */}
+        {plan === "free" ? (
+          <div className="rounded-2xl bg-white p-6 shadow mb-6">
+            <h2 className="text-lg font-semibold mb-2">Connect to HESPOR optimization algo</h2>
+            <p className="text-gray-600 mb-4">Unlock daily optimizations, unlimited chat, and activity feed.</p>
+            <button onClick={goCheckout} className="rounded-lg bg-emerald-600 px-4 py-2 text-white">Upgrade $49/mo</button>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-white p-6 shadow mb-6">
+            <h2 className="text-lg font-semibold mb-2">Sales & Profit</h2>
+            <p className="text-gray-600 mb-2">Filter: last 24h · 7d · 30d · 90d · 6m (coming soon)</p>
+            <div className="h-40 bg-emerald-100 rounded-md flex items-center justify-center text-emerald-800">
+              Graph placeholder (wire to Amazon data next)
+            </div>
+          </div>
+        )}
+
+        {/* activity section */}
+        <div className="rounded-2xl bg-white p-6 shadow">
+          <h2 className="text-lg font-semibold mb-2">Latest updates</h2>
+          {plan === "free" ? (
+            <p className="text-gray-600">
+              As soon as the algo is activated, the most recent updates will appear here.
+            </p>
+          ) : (
+            <ul className="list-disc ml-5 text-gray-700 space-y-1">
+              <li>Optimization activity will be listed here in natural language.</li>
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* RIGHT CHAT COLUMN */}
+      <div className="col-span-12 lg:col-span-4 h-screen sticky top-0">
+        <Chat />
+      </div>
+
+      {/* RIGHT DRAWER */}
+      <div id="drawer" className="hidden fixed right-4 top-16 z-50 w-72 rounded-xl bg-white shadow p-4">
+        <h3 className="font-semibold mb-2">Account</h3>
+        <ul className="space-y-2 text-sm">
+          <li><a className="text-emerald-700 underline" href="/api/billing">Billing (update card)</a></li>
+          <li><a className="text-emerald-700 underline" href="/api/subscription">Subscription (upgrade/downgrade)</a></li>
+          <li><a className="text-emerald-700 underline" href="mailto:support@hespor.com">Support: support@hespor.com</a></li>
+        </ul>
       </div>
     </div>
   );
