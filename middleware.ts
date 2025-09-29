@@ -1,40 +1,24 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
-const isPublic = (p: string) =>
-  p === "/" ||
-  p.startsWith("/auth/") ||
-  p === "/update-password" || // allow password reset page (route group is invisible)
-  p.startsWith("/api/ads/");
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
+  const { data: { user } } = await supabase.auth.getUser();
 
-const isLoggedIn = (req: NextRequest) => {
-  const c = req.cookies;
-  return !!(c.get("sb-access-token") || c.get("sb:token") || c.get("hespor_auth"));
-};
+  const protectedPaths = ["/dashboard", "/connect", "/admin"];
+  const isProtected = protectedPaths.some((p) => req.nextUrl.pathname.startsWith(p));
 
-export function middleware(req: NextRequest) {
-  const url = req.nextUrl;
-  const path = url.pathname;
-
-  if (isPublic(path)) return NextResponse.next();
-
-  if (!isLoggedIn(req)) {
-    const to = url.clone();
-    to.pathname = "/auth/sign-in";
-    to.searchParams.set(
-      "next",
-      path + (url.search ? `?${url.searchParams.toString()}` : "")
-    );
-    return NextResponse.redirect(to);
+  if (isProtected && !user) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/auth/sign-in";
+    return NextResponse.redirect(url);
   }
 
-  if (path.startsWith("/dashboard")) {
-    const ads = req.cookies.get("ads_connected")?.value;
-    if (ads !== "1") return NextResponse.redirect(new URL("/connect", url));
-  }
-
-  return NextResponse.next();
+  return res;
 }
 
-export const config = { matcher: ["/:path*"] };
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
