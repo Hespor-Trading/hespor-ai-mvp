@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 
-function Inner() {
+export default function ConnectClient() {
   const router = useRouter();
   const search = useSearchParams();
 
@@ -13,7 +13,7 @@ function Inner() {
   const [spOk, setSpOk] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 1) Make sure user is signed in, then poll connection status briefly
+  // Check session and poll status a few times after callbacks
   useEffect(() => {
     let timer: any;
     (async () => {
@@ -39,15 +39,16 @@ function Inner() {
     return () => clearInterval(timer);
   }, [router, search]);
 
-  // 2) If both connected → go to dashboard with first-load flag
+  // When both connected → go to dashboard (first-time overlay)
   useEffect(() => {
     if (uid && adsOk && spOk) router.replace("/dashboard?first=1");
   }, [uid, adsOk, spOk, router]);
 
   if (!uid || loading) return null;
 
-  // Build OAuth URLs (NA)
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com";
+
+  // Amazon Ads LWA (state carries uid as a fallback link to user)
   const adsAuthUrl =
     "https://www.amazon.com/ap/oa"
     + `?client_id=${process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID}`
@@ -56,6 +57,7 @@ function Inner() {
     + `&redirect_uri=${encodeURIComponent(`${base}/api/ads/callback`)}`
     + `&state=${encodeURIComponent(uid)}`;
 
+  // SP-API (your app must be approved for external sellers)
   const spAuthUrl =
     "https://sellercentral.amazon.com/apps/authorize/consent"
     + `?application_id=${encodeURIComponent(process.env.NEXT_PUBLIC_SP_APP_ID as string)}`
@@ -65,8 +67,8 @@ function Inner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-emerald-500">
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow">
-        <h1 className="text-3xl font-bold mb-2">Connect your Amazon account</h1>
-        <p className="text-gray-600 mb-8">
+        <h1 className="text-3xl font-bold mb-2 text-gray-900">Connect your Amazon account</h1>
+        <p className="text-gray-700 mb-8">
           Authorize access to Amazon Ads and the Selling Partner API. You can revoke access anytime in Amazon.
         </p>
 
@@ -103,20 +105,11 @@ function Inner() {
 
         {!adsOk || !spOk ? (
           <p className="mt-4 text-sm text-gray-500">
-            After you click <em>Allow</em> at Amazon, you’ll return here. The connected item will turn green;
+            After you click <em>Allow</em> at Amazon, you’ll return here. The connected item turns green;
             then connect the other one. Once both are connected you’ll be taken to your dashboard.
           </p>
         ) : null}
       </div>
     </div>
-  );
-}
-
-export default function ConnectClient() {
-  // Suspense wrapper satisfies Next’s requirement for useSearchParams
-  return (
-    <Suspense>
-      <Inner />
-    </Suspense>
   );
 }
