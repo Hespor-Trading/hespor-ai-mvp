@@ -1,8 +1,16 @@
-// app/dashboard/page.tsx
-import { Suspense } from "react";
+"use client";
 
-export const dynamic = "force-dynamic"; // avoid prerendering (fixes build)
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase";
+import Chat from "@/app/components/Chat";
+
+// prevent prerendering
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+type Plan = "free" | "pro";
+type Pt = { date: string; sales: number; profit: number; adSpend: number };
 
 export default function DashboardPage() {
   return (
@@ -12,30 +20,18 @@ export default function DashboardPage() {
   );
 }
 
-/* ---------------------- CLIENT COMPONENT BELOW ---------------------- */
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase";
-import Chat from "@/app/components/Chat";
-
-type Plan = "free" | "pro";
-type Pt = { date: string; sales: number; profit: number; adSpend: number };
-
 function DashboardInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [plan, setPlan] = useState<Plan>("free");
   const [uid, setUid] = useState<string | null>(null);
 
-  // Loader control
   const firstVisit = params?.get("first") === "1";
   const [showOverlay, setShowOverlay] = useState(firstVisit);
   const [range, setRange] = useState<"24h" | "7d" | "30d" | "90d" | "6m">("30d");
   const [series, setSeries] = useState<Pt[]>([]);
 
-  // Gate: must be signed in and connected
+  // require auth + both connections
   useEffect(() => {
     (async () => {
       const sb = supabaseBrowser();
@@ -43,24 +39,15 @@ function DashboardInner() {
       if (!session) return router.replace("/auth/sign-in");
       setUid(session.user.id);
 
-      // If not connected → /connect
       const [{ data: ads }, { data: sp }] = await Promise.all([
-        sb
-          .from("amazon_ads_credentials")
-          .select("user_id")
-          .eq("user_id", session.user.id)
-          .maybeSingle(),
-        sb
-          .from("spapi_credentials")
-          .select("user_id")
-          .eq("user_id", session.user.id)
-          .maybeSingle(),
+        sb.from("amazon_ads_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle(),
+        sb.from("spapi_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle(),
       ]);
       if (!ads || !sp) return router.replace("/connect");
     })();
   }, [router]);
 
-  // Poll bootstrap status if this is first visit
+  // first-time bootstrap poll
   useEffect(() => {
     if (!firstVisit) return;
     let alive = true;
@@ -69,7 +56,7 @@ function DashboardInner() {
     const poll = async () => {
       tries++;
       const res = await fetch("/api/bootstrap/status", { cache: "no-store" });
-      if (!res.ok) return; // keep polling
+      if (!res.ok) return;
       const j = await res.json();
       setPlan((j.plan as Plan) ?? "free");
       if (j.done || tries > 90) {
@@ -79,33 +66,25 @@ function DashboardInner() {
       }
     };
     poll();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [firstVisit]);
 
-  // Always know the plan
+  // always know plan
   useEffect(() => {
     (async () => {
       const sb = supabaseBrowser();
       const { data: { session } } = await sb.auth.getSession();
       if (!session) return;
-      const { data: prof } = await sb
-        .from("profiles")
-        .select("plan")
-        .eq("id", session.user.id)
-        .maybeSingle();
+      const { data: prof } = await sb.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
       if (prof?.plan) setPlan(prof.plan as Plan);
     })();
   }, []);
 
-  // Load metrics for Pro graph (stub endpoint for now)
+  // load (stub) metrics for graph in pro
   useEffect(() => {
     if (plan !== "pro") return;
     (async () => {
-      const res = await fetch(`/api/metrics/summary?range=${range}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(`/api/metrics/summary?range=${range}`, { cache: "no-store" });
       const j = await res.json();
       setSeries(j.series as Pt[]);
     })();
@@ -117,54 +96,20 @@ function DashboardInner() {
     window.location.href = `/api/checkout?uid=${user.id}`;
   };
 
-  // Simple SVG line renderer (no extra chart lib)
+  // tiny SVG chart (no extra deps)
   const svg = useMemo(() => {
     if (series.length === 0) return null;
-    const w = 640,
-      h = 180,
-      pad = 24;
-    const xs = (i: number) =>
-      pad + (i * (w - 2 * pad)) / (series.length - 1 || 1);
-    const maxY =
-      Math.max(
-        ...series.map((s) => Math.max(s.sales, s.profit, s.adSpend))
-      ) || 1;
+    const w = 640, h = 180, pad = 24;
+    const xs = (i: number) => pad + (i * (w - 2 * pad)) / (series.length - 1 || 1);
+    const maxY = Math.max(...series.map(s => Math.max(s.sales, s.profit, s.adSpend))) || 1;
     const ys = (v: number) => h - pad - (v / maxY) * (h - 2 * pad);
-
     return (
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-44">
-        <polyline
-          fill="none"
-          strokeWidth="2"
-          points={series.map((p, i) => `${xs(i)},${ys(p.sales)}`).join(" ")}
-        />
-        <polyline
-          fill="none"
-          strokeWidth="2"
-          points={series.map((p, i) => `${xs(i)},${ys(p.profit)}`).join(" ")}
-        />
-        <polyline
-          fill="none"
-          strokeWidth="2"
-          points={series.map((p, i) => `${xs(i)},${ys(p.adSpend)}`).join(" ")}
-        />
-        {/* axes */}
-        <line
-          x1={pad}
-          y1={h - pad}
-          x2={w - pad}
-          y2={h - pad}
-          stroke="currentColor"
-          strokeOpacity="0.2"
-        />
-        <line
-          x1={pad}
-          y1={pad}
-          x2={pad}
-          y2={h - pad}
-          stroke="currentColor"
-          strokeOpacity="0.2"
-        />
+        <polyline fill="none" strokeWidth="2" points={series.map((p,i)=>`${xs(i)},${ys(p.sales)}`).join(" ")} />
+        <polyline fill="none" strokeWidth="2" points={series.map((p,i)=>`${xs(i)},${ys(p.profit)}`).join(" ")} />
+        <polyline fill="none" strokeWidth="2" points={series.map((p,i)=>`${xs(i)},${ys(p.adSpend)}`).join(" ")} />
+        <line x1={pad} y1={h-pad} x2={w-pad} y2={h-pad} stroke="currentColor" strokeOpacity="0.2" />
+        <line x1={pad} y1={pad} x2={pad} y2={h-pad} stroke="currentColor" strokeOpacity="0.2" />
       </svg>
     );
   }, [series]);
@@ -198,51 +143,34 @@ function DashboardInner() {
             {/* left-top: CTA (Free) OR Graph (Pro) */}
             {plan === "free" ? (
               <div className="rounded-2xl bg-white p-6 shadow mb-6">
-                <h2 className="text-lg font-semibold mb-2">
-                  Connect to HESPOR optimization algo
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  Unlock daily optimizations, unlimited chat, and activity feed.
-                </p>
-                <button
-                  onClick={goCheckout}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-white"
-                >
-                  Upgrade $49/mo
-                </button>
+                <h2 className="text-lg font-semibold mb-2">Connect to HESPOR optimization algo</h2>
+                <p className="text-gray-600 mb-4">Unlock daily optimizations, unlimited chat, and activity feed.</p>
+                <button onClick={goCheckout} className="rounded-lg bg-emerald-600 px-4 py-2 text-white">Upgrade $49/mo</button>
               </div>
             ) : (
               <div className="rounded-2xl bg-white p-6 shadow mb-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">
-                    Sales • Profit • Ad spend
-                  </h2>
+                  <h2 className="text-lg font-semibold">Sales • Profit • Ad spend</h2>
                   <div className="flex gap-1 text-sm">
-                    {(["24h", "7d", "30d", "90d", "6m"] as const).map((r) => (
+                    {(["24h","7d","30d","90d","6m"] as const).map(r => (
                       <button
                         key={r}
-                        onClick={() => setRange(r)}
-                        className={`px-2 py-1 rounded ${
-                          range === r
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "hover:bg-gray-100"
-                        }`}
+                        onClick={()=>setRange(r)}
+                        className={`px-2 py-1 rounded ${range===r ? "bg-emerald-100 text-emerald-800" : "hover:bg-gray-100"}`}
                       >
                         {r}
                       </button>
                     ))}
                   </div>
                 </div>
-                <p className="text-gray-500 text-sm mb-2">
-                  Prototype graph – wires to Amazon data next.
-                </p>
+                <p className="text-gray-500 text-sm mb-2">Prototype graph – wires to Amazon data next.</p>
                 <div className="h-44 flex items-center justify-center text-emerald-800">
                   {svg ?? <div className="w-full h-44 bg-emerald-100 rounded-md" />}
                 </div>
               </div>
             )}
 
-            {/* activity section */}
+            {/* activity */}
             <div className="rounded-2xl bg-white p-6 shadow">
               <h2 className="text-lg font-semibold mb-2">Latest updates</h2>
               {plan === "free" ? (
@@ -276,7 +204,7 @@ function DashboardInner() {
         </div>
       </div>
 
-      {/* OVERLAY (emerald, centered) */}
+      {/* OVERLAY */}
       {showOverlay && <LoadingOverlay />}
     </div>
   );
@@ -291,9 +219,7 @@ function LoadingOverlay() {
           We’re fetching your Amazon data. This can take a few minutes for first-time setup.
           You’ll see your dashboard as soon as it’s ready.
         </p>
-        <div className="mt-6 animate-pulse rounded-lg bg-emerald-500 px-4 py-2 inline-block">
-          Loading
-        </div>
+        <div className="mt-6 animate-pulse rounded-lg bg-emerald-500 px-4 py-2 inline-block">Loading</div>
       </div>
     </div>
   );
