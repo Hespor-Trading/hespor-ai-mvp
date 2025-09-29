@@ -6,12 +6,7 @@ export default function SecurityPage() {
     <div className="min-h-screen bg-emerald-600">
       <main className="mx-auto max-w-3xl px-6 py-16">
         <div className="flex items-center gap-3 mb-8">
-          <img
-            src="/logo.png"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/logo.svg"; }}
-            alt="Hespor Logo"
-            className="h-10 w-10"
-          />
+          <img src="/logo.png" alt="Hespor Logo" className="h-10 w-10" />
           <h1 className="text-3xl font-bold text-white">Security Overview</h1>
         </div>
 
@@ -19,24 +14,27 @@ export default function SecurityPage() {
           <p className="text-neutral-700">
             We take security seriously. This page summarizes our current practices.
           </p>
+
           <div>
             <h2 className="text-xl font-semibold text-emerald-700">Data Handling</h2>
             <ul className="list-disc pl-6 text-neutral-800 mt-2">
-              <li>PII access limited to what’s required to provide services.</li>
+              <li>Only the minimum Seller/Ads scopes required are requested.</li>
               <li>Credentials stored in AWS Secrets Manager; least-privilege IAM.</li>
-              <li>Encrypted in transit (TLS) and at rest (AWS-managed keys).</li>
+              <li>TLS in transit; AWS-managed encryption at rest.</li>
             </ul>
           </div>
+
           <div>
             <h2 className="text-xl font-semibold text-emerald-700">Application Security</h2>
             <ul className="list-disc pl-6 text-neutral-800 mt-2">
-              <li>Role-segregated Lambda functions; S3 bucket access scoped per brand.</li>
+              <li>Isolated Lambda functions; brand-scoped S3 prefixes.</li>
               <li>EventBridge schedules; CloudWatch audit logs retained.</li>
               <li>Idempotent applier with action ledger in S3.</li>
             </ul>
           </div>
+
           <div>
-            <h2 className="text-xl font-semibold text-emerald-700">Reporting a Vulnerability</h2>
+            <h2 className="text-xl font-semibold text-emerald-700">Report a Vulnerability</h2>
             <p className="text-neutral-800 mt-2">
               Email <a className="underline text-emerald-700" href="mailto:security@hespor.com">security@hespor.com</a>.
               We acknowledge within 2 business days.
