@@ -1,40 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase";
 
-function Logo() {
-  // Next/Image + fallback <img> to guarantee the logo renders in all cases
-  return (
-    <div className="flex justify-center mb-6">
-      <Image
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        onError={(e) => {
-          (e.target as any).style.display = "none";
-          const f = document.getElementById("logo-fallback");
-          if (f) (f as any).style.display = "block";
-        }}
-      />
-      <img
-        id="logo-fallback"
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        style={{ display: "none" }}
-      />
-    </div>
-  );
-}
+export const dynamic = "force-dynamic";
 
 export default function SignInPage() {
   const router = useRouter();
-  const _sp = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
@@ -48,18 +22,13 @@ export default function SignInPage() {
       return;
     }
 
-    const { count, error } = await sb
+    const { count } = await sb
       .from("spapi_credentials")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
 
-    if (error) {
-      router.replace("/connect");
-      return;
-    }
-
-    if (!count || count === 0) router.replace("/connect");
-    else router.replace("/dashboard");
+    if (!count || count === 0) router.push("/connect");
+    else router.push("/dashboard");
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -97,7 +66,13 @@ export default function SignInPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-500">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <Logo />
+        <div className="flex justify-center mb-6">
+          {/* next/image + safe fallback */}
+          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
+          <noscript>
+            <img src="/hespor-logo.png" alt="HESPOR" width="160" height="40" />
+          </noscript>
+        </div>
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
           Log In to HESPOR
         </h1>
