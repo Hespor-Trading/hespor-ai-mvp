@@ -1,5 +1,5 @@
 // app/layout.tsx
-import "../styles/globals.css";   // ✅ correct relative path
+import "../styles/globals.css";  // <-- important: your globals live in /styles
 
 export const metadata = {
   title: "HESPOR",
