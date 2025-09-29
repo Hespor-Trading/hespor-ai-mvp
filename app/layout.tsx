@@ -1,5 +1,5 @@
 // app/layout.tsx
-import "./globals.css";
+import "../styles/globals.css";
 import type { ReactNode } from "react";
 
 export const metadata = {
@@ -10,9 +10,18 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased bg-white text-gray-900">
-        {children}
-      </body>
+      <head>
+        {/* Keep Tailwind CDN for instant styling on auth pages */}
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              tailwind.config = { theme: { extend: {} } }
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-screen">{children}</body>
     </html>
   );
 }
