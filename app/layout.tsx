@@ -1,5 +1,5 @@
 // app/layout.tsx
-import "../styles/globals.css"; // keep your compiled CSS pipeline too
+import "./globals.css";
 import type { ReactNode } from "react";
 
 export const metadata = {
@@ -10,21 +10,9 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        {/* 🔥 HOT-FIX: Tailwind CDN so pages are styled immediately */}
-        <script src="https://cdn.tailwindcss.com"></script>
-        {/* Optional: tune Tailwind CDN if you need */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              tailwind.config = {
-                theme: { extend: {} }
-              }
-            `,
-          }}
-        />
-      </head>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen antialiased bg-white text-gray-900">
+        {children}
+      </body>
     </html>
   );
 }
