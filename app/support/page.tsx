@@ -1,18 +1,14 @@
-// app/support/page.tsx
 export const dynamic = "force-static";
 
 export default function SupportPage() {
   return (
     <div className="min-h-screen bg-emerald-600">
       <main className="mx-auto max-w-3xl px-6 py-16">
-        {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          {/* Put your logo at /public/logo.png or /public/logo.svg */}
-          <img src="/logo.png" alt="Hespor Logo" className="h-10 w-10" />
+          <img src="/hespor-logo.png" alt="Hespor Logo" className="h-10 w-10" />
           <h1 className="text-3xl font-bold text-white">Hespor Support</h1>
         </div>
 
-        {/* Card */}
         <section className="rounded-2xl bg-white p-8 shadow">
           <p className="text-neutral-700">
             Need help with Seller Engine (SP-API) or Ads Automation? We’re here.
@@ -40,8 +36,7 @@ export default function SupportPage() {
             <div>
               <h2 className="text-xl font-semibold text-emerald-700">Status</h2>
               <p className="mt-2 text-neutral-800">
-                Service status and incidents are posted on our dashboard inside the app and via
-                email if customer-impacting.
+                Service status and incidents are posted in-app and via email if customer-impacting.
               </p>
             </div>
 
