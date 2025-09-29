@@ -3,31 +3,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { supabaseBrowser } from "@/lib/supabase";
 
-function Logo() {
-  return (
-    <div className="flex justify-center mb-6">
-      <Image
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        onError={(e) => {
-          (e.target as any).style.display = "none";
-          const f = document.getElementById("logo-fallback");
-          if (f) (f as any).style.display = "block";
-        }}
-      />
-      <img
-        id="logo-fallback"
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        style={{ display: "none" }}
-      />
-    </div>
-  );
-}
+export const dynamic = "force-dynamic";
 
 export default function ResetPage() {
   const [msg, setMsg] = useState("");
@@ -41,9 +17,10 @@ export default function ResetPage() {
     const { error } = await supabaseBrowser().auth.resetPasswordForEmail(
       email,
       {
+        // (auth) route group is invisible in URL → this page is /update-password
         redirectTo: `${
           process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"
-        }/auth/update-password`,
+        }/update-password`,
       }
     );
     if (error) setErr(error.message);
@@ -53,7 +30,12 @@ export default function ResetPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-500">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <Logo />
+        <div className="flex justify-center mb-6">
+          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
+          <noscript>
+            <img src="/hespor-logo.png" alt="HESPOR" width="160" height="40" />
+          </noscript>
+        </div>
         <h1 className="text-2xl font-bold text-center mb-4">
           Reset your password
         </h1>
