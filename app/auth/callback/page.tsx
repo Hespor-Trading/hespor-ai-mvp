@@ -2,14 +2,33 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase";
+
+async function routeAfterLogin(router: any) {
+  const sb = supabaseBrowser();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user?.id) {
+    router.replace("/auth/sign-in");
+    return;
+  }
+
+  const { count } = await sb
+    .from("spapi_credentials")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  if (!count || count === 0) router.replace("/connect");
+  else router.replace("/dashboard");
+}
 
 function CallbackInner() {
   const router = useRouter();
-  const _sp = useSearchParams(); // reading guards hydration; not used directly
+  const _sp = useSearchParams();
 
   useEffect(() => {
-    // Supabase handles the OAuth response itself; we just move the user along.
-    router.replace("/dashboard");
+    routeAfterLogin(router);
   }, [router]);
 
   return (
@@ -21,11 +40,13 @@ function CallbackInner() {
 
 export default function CallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-700">Finishing sign-in…</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-gray-700">Finishing sign-in…</p>
+        </div>
+      }
+    >
       <CallbackInner />
     </Suspense>
   );
