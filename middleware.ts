@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const isPublic = (p: string) =>
-  p === "/" || p.startsWith("/auth/") || p.startsWith("/api/ads/");
+  p === "/" ||
+  p.startsWith("/auth/") ||
+  p === "/update-password" || // allow password reset page (route group is invisible)
+  p.startsWith("/api/ads/");
 
 const isLoggedIn = (req: NextRequest) => {
   const c = req.cookies;
@@ -19,7 +22,10 @@ export function middleware(req: NextRequest) {
   if (!isLoggedIn(req)) {
     const to = url.clone();
     to.pathname = "/auth/sign-in";
-    to.searchParams.set("next", path + (url.search ? `?${url.searchParams.toString()}` : ""));
+    to.searchParams.set(
+      "next",
+      path + (url.search ? `?${url.searchParams.toString()}` : "")
+    );
     return NextResponse.redirect(to);
   }
 
