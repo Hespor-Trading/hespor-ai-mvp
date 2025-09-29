@@ -1,34 +1,41 @@
+Totally get it. We’re not touching your Sign In / Sign Up code or UI at all. The only thing that can “hide” them is middleware that redirects too aggressively. Here’s the clean, copy-paste fix plus exactly how your external “Connect now” button should link.
+
+Step 1 — Use this middleware (keeps your Sign In/Sign Up pages exactly as they are)
+
+Replace your middleware.ts with this:
+
 // middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Add every publicly accessible path here (no auth required)
+/**
+ * Public (never blocked) routes — your auth pages & the Ads OAuth callback
+ * Keep these so your existing sign-in / sign-up UI shows exactly as-is.
+ */
 const PUBLIC_PATHS = new Set<string>([
-  "/",                  // landing
-  "/signin",
-  "/signup",
-  "/auth",              // if you use a catch-all like /auth/*
-  "/connect",           // keep connect public if you want users to auth after
-  "/api/ads/callback",  // must stay public for OAuth redirect
+  "/",                  // your landing page
+  "/signin",            // your existing sign-in page
+  "/signup",            // your existing sign-up page
+  "/auth",              // if you use /auth/* routes (keep the wildcard below)
+  "/api/ads/callback",  // must be public for Amazon redirect
 ]);
 
-function isPublicPath(pathname: string) {
+function isPublic(pathname: string) {
   if (PUBLIC_PATHS.has(pathname)) return true;
-  // allow subpaths like /auth/*, /api/ads/*
-  if (pathname.startsWith("/auth/")) return true;
-  if (pathname.startsWith("/api/ads/")) return true;
+  if (pathname.startsWith("/auth/")) return true;       // allow /auth/*
+  if (pathname.startsWith("/api/ads/")) return true;    // allow /api/ads/*
   return false;
 }
 
-// Try to detect a signed-in session for common providers
-function isAuthed(req: NextRequest) {
-  const cookies = req.cookies;
-  // NextAuth:
-  if (cookies.get("next-auth.session-token") || cookies.get("__Secure-next-auth.session-token")) return true;
-  // Supabase:
-  if (cookies.get("sb-access-token") || cookies.get("sb:token")) return true;
-  // Your custom cookie (adjust the name if you set one):
-  if (cookies.get("hespor_auth")) return true;
+/** Detect your logged-in session (update names to match your auth lib if needed) */
+function isLoggedIn(req: NextRequest) {
+  const c = req.cookies;
+  // NextAuth cookies
+  if (c.get("__Secure-next-auth.session-token") || c.get("next-auth.session-token")) return true;
+  // Supabase cookies
+  if (c.get("sb-access-token") || c.get("sb:token")) return true;
+  // Custom cookie (rename if yours is different)
+  if (c.get("hespor_auth")) return true;
   return false;
 }
 
@@ -36,23 +43,21 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const { pathname } = url;
 
-  // Always allow public paths
-  if (isPublicPath(pathname)) {
-    return NextResponse.next();
+  // Always allow public routes (auth pages & OAuth callback)
+  if (isPublic(pathname)) return NextResponse.next();
+
+  // Require login for everything else (including /connect and /dashboard)
+  if (!isLoggedIn(req)) {
+    const to = url.clone();
+    to.pathname = "/signin";
+    // preserve brand and where the user was going
+    const brand = url.searchParams.get("brand") || "DECOGAR";
+    to.searchParams.set("brand", brand);
+    to.searchParams.set("next", pathname + (url.search ? `?${url.searchParams.toString()}` : ""));
+    return NextResponse.redirect(to);
   }
 
-  // Require sign-in for everything else (e.g., /dashboard)
-  if (!isAuthed(req)) {
-    const redirect = url.clone();
-    redirect.pathname = "/signin";
-    // preserve 'brand' so you can flow back after login
-    const b = url.searchParams.get("brand") || "DECOGAR";
-    redirect.searchParams.set("brand", b);
-    redirect.searchParams.set("next", url.pathname + (url.search ? `?${url.searchParams.toString()}` : ""));
-    return NextResponse.redirect(redirect);
-  }
-
-  // If signed in and heading to /dashboard, ensure Ads is connected
+  // If logged in and heading to dashboard, enforce Ads connection only
   if (pathname.startsWith("/dashboard")) {
     const ads = req.cookies.get("ads_connected")?.value;
     if (ads !== "1") {
@@ -67,7 +72,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = {
-  // Apply to all routes so we can allow/deny precisely above
-  matcher: ["/:path*"],
-};
+export const config = { matcher: ["/:path*"] };
