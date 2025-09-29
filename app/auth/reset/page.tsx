@@ -1,58 +1,77 @@
 "use client";
-import { useState } from "react";
-import Image from "next/image";
-import { supabaseBrowser } from "@/lib/supabase";
 
-export const dynamic = "force-dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+const passSchema = z
+  .string()
+  .min(8, "Min 8 characters")
+  .regex(/[A-Z]/, "Include at least one uppercase letter")
+  .regex(/[0-9]/, "Include at least one number")
+  .regex(/[^A-Za-z0-9]/, "Include at least one special character");
 
 export default function ResetPage() {
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
+  const sp = useSearchParams();
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+  const token = sp.get("token");
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function sendReset(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setMsg("");
-    setErr("");
-    const email = (e.currentTarget as any).email.value.trim();
-    const { error } = await supabaseBrowser().auth.resetPasswordForEmail(
-      email,
-      {
-        // (auth) route group is invisible in URL → this page is /update-password
-        redirectTo: `${
-          process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"
-        }/update-password`,
-      }
-    );
+    setErr(null); setOk(null);
+    const email = new FormData(e.currentTarget).get("email") as string;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+    });
     if (error) setErr(error.message);
-    else setMsg("Check your email for a password reset link.");
+    else setOk("Email sent. Check your inbox.");
+  }
+
+  async function updatePassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErr(null); setOk(null);
+    const password = new FormData(e.currentTarget).get("password") as string;
+    const parsed = passSchema.safeParse(password);
+    if (!parsed.success) return setErr(parsed.error.errors[0].message);
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) setErr(error.message);
+    else router.replace("/auth/sign-in?reset=1");
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-emerald-500">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <div className="flex justify-center mb-6">
-          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
-          <noscript>
-            <img src="/hespor-logo.png" alt="HESPOR" width="160" height="40" />
-          </noscript>
-        </div>
-        <h1 className="text-2xl font-bold text-center mb-4">
-          Reset your password
-        </h1>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <input
-            name="email"
-            type="email"
-            placeholder="Your email"
-            required
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-emerald-500"
-          />
-          {err && <p className="text-sm text-red-600">{err}</p>}
-          {msg && <p className="text-sm text-emerald-700">{msg}</p>}
-          <button className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition">
-            Send reset link
-          </button>
-        </form>
+    <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8 space-y-4">
+        {!token ? (
+          <>
+            <h1 className="text-xl font-semibold text-center">Forgot password</h1>
+            {err && <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{err}</div>}
+            {ok && <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-700">{ok}</div>}
+            <form onSubmit={sendReset} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium">Email</label>
+                <input name="email" type="email" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
+              </div>
+              <button className="w-full rounded-lg bg-black text-white py-2.5">Send reset link</button>
+            </form>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl font-semibold text-center">Set a new password</h1>
+            {err && <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{err}</div>}
+            <form onSubmit={updatePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium">New password</label>
+                <input name="password" type="password" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
+              </div>
+              <button className="w-full rounded-lg bg-black text-white py-2.5">Update password</button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
