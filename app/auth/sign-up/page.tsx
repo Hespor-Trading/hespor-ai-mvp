@@ -1,146 +1,180 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase";
+import { useState } from "react";
+import { z } from "zod";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export const dynamic = "force-dynamic";
-
-const strongPw = (pw: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,64})/.test(pw);
+const schema = z.object({
+  email: z.string().email(),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Include at least one uppercase letter")
+    .regex(/[0-9]/, "Include at least one number")
+    .regex(/[^A-Za-z0-9]/, "Include at least one special character"),
+  accept: z.literal(true, {
+    errorMap: () => ({ message: "You must agree to the Terms & Privacy to continue." }),
+  }),
+});
 
 export default function SignUpPage() {
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [ok, setOk] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const emailRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setErr(""); setLoading(true);
+    setErr(null);
 
-    const f = e.currentTarget as any;
-    const email = f.email.value.trim();
-    const email2 = f.email2.value.trim();
-    const password = f.password.value;
-    const password2 = f.password2.value;
-    const first_name = f.first_name.value.trim();
-    const last_name = f.last_name.value.trim();
-    const business_name = f.business_name.value.trim();
-    const store_brand = f.store_brand.value.trim();
-    const terms = f.terms.checked;
+    const fd = new FormData(e.currentTarget);
+    const data = {
+      email: String(fd.get("email") || "").trim(),
+      password: String(fd.get("password") || ""),
+      accept: fd.get("accept") === "on",
+    };
 
-    if (!terms) { setErr("Please accept the Terms & Privacy."); setLoading(false); return; }
-    if (email !== email2) { setErr("Emails do not match."); setLoading(false); return; }
-    if (password !== password2) { setErr("Passwords do not match."); setLoading(false); return; }
-    if (!strongPw(password)) { setErr("Password must be 8+ chars and include upper, lower, and a number."); setLoading(false); return; }
+    const parsed = schema.safeParse(data);
+    if (!parsed.success) {
+      setErr(parsed.error.errors[0].message);
+      return;
+    }
 
-    const sb = supabaseBrowser();
-    const { data, error } = await sb.auth.signUp({
-      email,
-      password,
+    try {
+      sessionStorage.setItem("last_sign_up_email", data.email);
+    } catch {}
+
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
       options: {
-        data: { first_name, last_name, business_name, store_brand },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/verify/pending`,
       },
     });
-
     setLoading(false);
-    if (error) { setErr(error.message); return; }
 
-    if (data?.user && !data?.session) { setOk(true); setCooldown(60); }
-    else { router.push("/auth/sign-in?new=1"); }
+    if (error) {
+      setErr(error.message || "Failed to create account.");
+      return;
+    }
+
+    router.push("/auth/sign-in?created=1");
   }
 
-  async function handleGoogle() {
-    await supabaseBrowser().auth.signInWithOAuth({
+  async function signUpWithGoogle() {
+    setErr(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
-        queryParams: { access_type: "offline", prompt: "consent" },
-      },
+      options: { redirectTo: `${window.location.origin}/auth/verify/pending` },
     });
-  }
-
-  async function resendConfirmation() {
-    setErr("");
-    const email = emailRef.current?.value?.trim();
-    if (!email) { setErr("Enter your email above first."); return; }
-
-    const { error } = await supabaseBrowser().auth.resend({
-      type: "signup",
-      email,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com"}/auth/callback`,
-      },
-    });
-
-    if (error) { setErr(error.message); return; }
-    setCooldown(60);
+    setLoading(false);
+    if (error) setErr(error.message || "Google sign-in failed.");
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-emerald-500">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <div className="flex justify-center mb-6">
-          <img src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
+    <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
+        <div className="flex flex-col items-center gap-3 mb-6">
+          <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
+          <h1 className="text-xl font-semibold">Create your Hespor account</h1>
         </div>
 
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Sign Up for HESPOR</h1>
-
-        {ok ? (
-          <div className="text-center">
-            <p className="text-gray-700">We sent a confirmation link to your email. After verifying, please log in.</p>
-            <button onClick={resendConfirmation} disabled={cooldown > 0} className="mt-4 w-full rounded-lg border border-gray-300 py-2 font-medium hover:bg-gray-50 transition disabled:opacity-50">
-              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend confirmation email"}
-            </button>
-            <p className="text-xs text-gray-500 mt-2">Tip: check Spam/Junk; Outlook can delay these.</p>
+        {err && (
+          <div className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+            {err}
           </div>
-        ) : (
-          <>
-            <button onClick={handleGoogle} type="button" className="w-full mb-4 rounded-lg border border-gray-300 py-2 font-medium hover:bg-gray-50 transition">
-              Continue with Google
-            </button>
-
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input name="first_name" placeholder="First name" className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                <input name="last_name" placeholder="Last name" className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <input name="business_name" placeholder="Business / Company name" className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              <input name="store_brand" placeholder="Amazon store / brand (optional)" className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-
-              <input ref={emailRef} type="email" name="email" placeholder="Email" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              <input type="email" name="email2" placeholder="Confirm email" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-
-              <input type="password" name="password" placeholder="Password" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              <input type="password" name="password2" placeholder="Confirm password" required className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-
-              <label className="flex items-center gap-2 text-sm text-gray-600">
-                <input type="checkbox" name="terms" className="h-4 w-4" />
-                I agree to the <a href="/terms" className="text-emerald-600 underline">Terms & Conditions</a> and{" "}
-                <a href="/privacy" className="text-emerald-600 underline">Privacy Policy</a>.
-              </label>
-
-              {err && <p className="text-sm text-red-600">{err}</p>}
-
-              <button type="submit" disabled={loading} className="w-full rounded-lg bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50">
-                {loading ? "Creating account..." : "Sign Up"}
-              </button>
-            </form>
-          </>
         )}
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Already have an account? <a href="/auth/sign-in" className="font-medium text-emerald-600 hover:underline">Log In</a>
-        </p>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input
+              name="email"
+              type="email"
+              required
+              className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring"
+              placeholder="you@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Password</label>
+            <input
+              name="password"
+              type="password"
+              required
+              className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring"
+              placeholder="At least 8 chars, 1 number, 1 symbol"
+            />
+          </div>
+
+          <div id="legal" className="rounded-lg border p-3 bg-emerald-50">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="accept" className="mt-1" />
+              <span className="text-black">
+                I agree to the{" "}
+                <button type="button" className="underline" onClick={() => setShowTerms(true)}>
+                  Terms &amp; Conditions
+                </button>{" "}
+                and{" "}
+                <button type="button" className="underline" onClick={() => setShowPrivacy(true)}>
+                  Privacy Policy
+                </button>
+                .
+              </span>
+            </label>
+          </div>
+
+          <button
+            disabled={loading}
+            className="w-full rounded-lg bg-black text-white py-2.5 hover:opacity-90 disabled:opacity-50"
+            type="submit"
+          >
+            {loading ? "Creating..." : "Create account"}
+          </button>
+
+          <button
+            type="button"
+            onClick={signUpWithGoogle}
+            className="w-full rounded-lg border border-black py-2.5 hover:bg-black hover:text-white transition"
+          >
+            Continue with Google
+          </button>
+
+          <div className="text-center text-sm">
+            Already have an account?{" "}
+            <Link href="/auth/sign-in" className="underline">
+              Sign in
+            </Link>
+          </div>
+        </form>
+
+        {/* Simple modal drawers using <dialog> (keeps black text on emerald header) */}
+        {showTerms && (
+          <dialog open className="w-full max-w-2xl rounded-xl p-0 border shadow-2xl">
+            <div className="bg-emerald-600 text-black p-4 font-semibold">Terms &amp; Conditions</div>
+            <iframe className="w-full h-[60vh] p-4" src="/legal/terms" title="Terms & Conditions" />
+            <div className="p-4 text-right">
+              <button className="underline" onClick={() => setShowTerms(false)}>Close</button>
+            </div>
+          </dialog>
+        )}
+        {showPrivacy && (
+          <dialog open className="w-full max-w-2xl rounded-xl p-0 border shadow-2xl">
+            <div className="bg-emerald-600 text-black p-4 font-semibold">Privacy Policy</div>
+            <iframe className="w-full h-[60vh] p-4" src="/legal/privacy" title="Privacy Policy" />
+            <div className="p-4 text-right">
+              <button className="underline" onClick={() => setShowPrivacy(false)}>Close</button>
+            </div>
+          </dialog>
+        )}
       </div>
     </div>
   );
