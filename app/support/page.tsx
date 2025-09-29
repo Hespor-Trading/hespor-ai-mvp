@@ -1,4 +1,3 @@
-// app/support/page.tsx
 import Image from "next/image";
 
 export const dynamic = "force-static";
@@ -9,30 +8,25 @@ export default function SupportPage() {
       {/* Header with logo + title */}
       <div className="flex items-center gap-3 mb-8">
         <Image
-          src="/logo.png" // <-- put your logo in /public/logo.png
+          src="/logo.png" // make sure your logo is in /public/logo.png
           alt="Hespor logo"
           width={40}
           height={40}
         />
-        <h1 className="text-3xl font-semibold text-emerald-700 tracking-tight">
-          Hespor Support
-        </h1>
+        <h1 className="text-3xl font-bold text-emerald-700">Hespor Support</h1>
       </div>
 
-      <p className="text-neutral-700">
+      <p className="text-neutral-600 mb-8">
         Need help with Seller Engine (SP-API) or Ads Automation? We’re here.
       </p>
 
-      <section className="mt-10 space-y-6">
+      <section className="space-y-8">
         <div>
-          <h2 className="text-xl font-medium text-emerald-600">Contact</h2>
+          <h2 className="text-xl font-semibold text-emerald-700">Contact</h2>
           <ul className="mt-2 list-disc pl-6 text-neutral-700">
             <li>
               Email:{" "}
-              <a
-                className="underline text-emerald-700"
-                href="mailto:support@hespor.com"
-              >
+              <a className="underline text-emerald-700" href="mailto:support@hespor.com">
                 support@hespor.com
               </a>
             </li>
@@ -41,20 +35,20 @@ export default function SupportPage() {
         </div>
 
         <div>
-          <h2 className="text-xl font-medium text-emerald-600">Support Hours</h2>
+          <h2 className="text-xl font-semibold text-emerald-700">Support Hours</h2>
           <p className="mt-2 text-neutral-700">Mon–Fri, 9:00–17:00 (Pacific Time)</p>
         </div>
 
         <div>
-          <h2 className="text-xl font-medium text-emerald-600">Status</h2>
+          <h2 className="text-xl font-semibold text-emerald-700">Status</h2>
           <p className="mt-2 text-neutral-700">
-            Service status and incidents are posted on our dashboard inside the
-            app and via email if customer-impacting.
+            Service status and incidents are posted on our dashboard inside the app and via email if
+            customer-impacting.
           </p>
         </div>
 
         <div>
-          <h2 className="text-xl font-medium text-emerald-600">Policies</h2>
+          <h2 className="text-xl font-semibold text-emerald-700">Policies</h2>
           <ul className="mt-2 list-disc pl-6 text-neutral-700">
             <li>
               <a className="underline text-emerald-700" href="/privacy">
@@ -75,10 +69,8 @@ export default function SupportPage() {
         </div>
 
         <div>
-          <h2 className="text-xl font-medium text-emerald-600">Address</h2>
-          <p className="mt-2 text-neutral-700">
-            Hespor Trading Ltd., Vancouver, BC, Canada
-          </p>
+          <h2 className="text-xl font-semibold text-emerald-700">Address</h2>
+          <p className="mt-2 text-neutral-700">Hespor Trading Ltd., Vancouver, BC, Canada</p>
         </div>
       </section>
 
