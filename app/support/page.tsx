@@ -1,20 +1,53 @@
-// app/support/page.tsx (SERVER)
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// app/support/page.tsx
+export const dynamic = "force-static";
 
-export default function Support() {
+export default function SupportPage() {
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Support</h1>
-      <p className="text-gray-700 mb-4">
-        For help, email <a className="text-emerald-700 underline" href="mailto:support@hespor.com">support@hespor.com</a>.
+    <main className="mx-auto max-w-3xl px-6 py-12">
+      <h1 className="text-3xl font-semibold tracking-tight">Hespor Support</h1>
+      <p className="mt-4 text-neutral-600">
+        Need help with Seller Engine (SP-API) or Ads Automation? We’re here.
       </p>
-      <h2 className="text-lg font-semibold mt-8 mb-2">Amazon SP-API status</h2>
-      <p className="text-gray-700">
-        If you see “MD1000 You do not have access to this application” while connecting SP-API,
-        it means our app listing is still awaiting Amazon approval for public access. Once approved,
-        you’ll be able to complete the SP-API connection.
-      </p>
-    </div>
+
+      <section className="mt-8 space-y-4">
+        <div>
+          <h2 className="text-xl font-medium">Contact</h2>
+          <ul className="mt-2 list-disc pl-6">
+            <li>Email: <a className="underline" href="mailto:support@hespor.com">support@hespor.com</a></li>
+            <li>Response time: within 2 business days</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-medium">Support Hours</h2>
+          <p className="mt-2">Mon–Fri, 9:00–17:00 (Pacific Time)</p>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-medium">Status</h2>
+          <p className="mt-2">
+            Service status and incidents are posted on our dashboard inside the app and via email if customer-impacting.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-medium">Policies</h2>
+          <ul className="mt-2 list-disc pl-6">
+            <li><a className="underline" href="/privacy">Privacy Policy</a></li>
+            <li><a className="underline" href="/terms">Terms of Service</a></li>
+            <li><a className="underline" href="/security">Security Overview</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-medium">Address</h2>
+          <p className="mt-2">Hespor Trading Ltd., Vancouver, BC, Canada</p>
+        </div>
+      </section>
+
+      <footer className="mt-12 text-sm text-neutral-500">
+        © {new Date().getFullYear()} Hespor Trading Ltd.
+      </footer>
+    </main>
   );
 }
