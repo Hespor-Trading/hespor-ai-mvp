@@ -2,63 +2,56 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/** Public routes (never blocked) */
-const PUBLIC_PATHS = new Set<string>([
-  "/",                  // landing
-  "/signin",            // sign in page
-  "/signup",            // sign up page (if you have it)
-  "/auth",              // allow /auth/* if you use it
-  "/api/ads/callback",  // Amazon Ads OAuth redirect
-  "/api/devlogin",      // dev login endpoint (this file below)
-]);
-
+// Public routes (never blocked)
 function isPublic(pathname: string) {
-  if (PUBLIC_PATHS.has(pathname)) return true;
+  // landing and all auth pages (sign-in, sign-up, reset, callbacks)
+  if (pathname === "/") return true;
   if (pathname.startsWith("/auth/")) return true;
+  // Ads OAuth callback must be public
   if (pathname.startsWith("/api/ads/")) return true;
   return false;
 }
 
-/** Detect a logged-in session (dev: hespor_auth cookie) */
+// Detect logged-in session (Supabase cookies)
 function isLoggedIn(req: NextRequest) {
   const c = req.cookies;
-  // NextAuth cookies
-  if (c.get("__Secure-next-auth.session-token") || c.get("next-auth.session-token")) return true;
-  // Supabase cookies
+  // Supabase sets one or both of these
   if (c.get("sb-access-token") || c.get("sb:token")) return true;
-  // Dev/custom cookie
+  // (Optional) if you also mint a custom cookie:
   if (c.get("hespor_auth")) return true;
   return false;
 }
 
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
-  const { pathname } = url;
+  const path = url.pathname;
 
-  // Allow public routes
-  if (isPublic(pathname)) return NextResponse.next();
+  // Always allow public routes
+  if (isPublic(path)) return NextResponse.next();
 
-  // Everything else requires login (including /connect and /dashboard)
-  if (!isLoggedIn(req)) {
+  // Require login for /connect and /dashboard (and anything else non-public)
+  const authed = isLoggedIn(req);
+  if (!authed) {
     const to = url.clone();
-    to.pathname = "/signin";
-    const brand = url.searchParams.get("brand") || "DECOGAR";
-    to.searchParams.set("brand", brand);
-    to.searchParams.set("next", pathname + (url.search ? `?${url.searchParams.toString()}` : ""));
+    to.pathname = "/auth/sign-in";
+    // preserve where they were going (e.g., /connect)
+    to.searchParams.set(
+      "next",
+      path + (url.search ? `?${url.searchParams.toString()}` : "")
+    );
     return NextResponse.redirect(to);
   }
 
   // If logged in and heading to /dashboard, enforce Ads connection only
-  if (pathname.startsWith("/dashboard")) {
+  if (path.startsWith("/dashboard")) {
     const ads = req.cookies.get("ads_connected")?.value;
     if (ads !== "1") {
       const go = url.clone();
       go.pathname = "/connect";
-      go.searchParams.set("brand", url.searchParams.get("brand") || "DECOGAR");
-      go.searchParams.set("need", "ads");
       return NextResponse.redirect(go);
     }
   }
+
   return NextResponse.next();
 }
 
