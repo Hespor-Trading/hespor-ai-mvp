@@ -4,34 +4,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 const strongPw = (pw: string) =>
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,64})/.test(pw);
-
-function Logo() {
-  return (
-    <div className="flex justify-center mb-6">
-      <Image
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        onError={(e) => {
-          (e.target as any).style.display = "none";
-          const f = document.getElementById("logo-fallback");
-          if (f) (f as any).style.display = "block";
-        }}
-      />
-      <img
-        id="logo-fallback"
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        style={{ display: "none" }}
-      />
-    </div>
-  );
-}
 
 export default function UpdatePassword() {
   const [err, setErr] = useState("");
@@ -61,7 +37,12 @@ export default function UpdatePassword() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-500">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <Logo />
+        <div className="flex justify-center mb-6">
+          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
+          <noscript>
+            <img src="/hespor-logo.png" alt="HESPOR" width="160" height="40" />
+          </noscript>
+        </div>
         <h1 className="text-2xl font-bold text-center mb-4">
           Set a new password
         </h1>
