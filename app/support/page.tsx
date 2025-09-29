@@ -7,13 +7,8 @@ export default function SupportPage() {
       <main className="mx-auto max-w-3xl px-6 py-16">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          {/* Put your logo file at /public/logo.png or /public/logo.svg */}
-          <img
-            src="/logo.png"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/logo.svg"; }}
-            alt="Hespor Logo"
-            className="h-10 w-10"
-          />
+          {/* Put your logo at /public/logo.png or /public/logo.svg */}
+          <img src="/logo.png" alt="Hespor Logo" className="h-10 w-10" />
           <h1 className="text-3xl font-bold text-white">Hespor Support</h1>
         </div>
 
@@ -45,7 +40,8 @@ export default function SupportPage() {
             <div>
               <h2 className="text-xl font-semibold text-emerald-700">Status</h2>
               <p className="mt-2 text-neutral-800">
-                Service status and incidents are posted on our dashboard inside the app and via email if customer-impacting.
+                Service status and incidents are posted on our dashboard inside the app and via
+                email if customer-impacting.
               </p>
             </div>
 
