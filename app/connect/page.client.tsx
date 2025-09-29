@@ -1,115 +1,81 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 
 export default function ConnectClient() {
   const router = useRouter();
-  const search = useSearchParams();
+  const [acos, setAcos] = useState("28");
+  const [asin, setAsin] = useState("");
 
-  const [uid, setUid] = useState<string | null>(null);
-  const [adsOk, setAdsOk] = useState(false);
-  const [spOk, setSpOk] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  // Check session and poll status a few times after callbacks
   useEffect(() => {
-    let timer: any;
     (async () => {
       const sb = supabaseBrowser();
       const { data: { session } } = await sb.auth.getSession();
-      if (!session) return router.replace("/auth/sign-in");
-      setUid(session.user.id);
-
-      const check = async () => {
-        const [{ data: a }, { data: s }] = await Promise.all([
-          sb.from("amazon_ads_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle(),
-          sb.from("spapi_credentials").select("user_id").eq("user_id", session.user.id).maybeSingle(),
-        ]);
-        setAdsOk(!!a?.user_id);
-        setSpOk(!!s?.user_id);
-        setLoading(false);
-      };
-
-      await check();
-      timer = setInterval(check, 2000);
-      setTimeout(() => clearInterval(timer), 15000);
+      if (!session) router.replace("/auth/sign-in");
     })();
-    return () => clearInterval(timer);
-  }, [router, search]);
+  }, [router]);
 
-  // When both connected → go to dashboard (first-time overlay)
-  useEffect(() => {
-    if (uid && adsOk && spOk) router.replace("/dashboard?first=1");
-  }, [uid, adsOk, spOk, router]);
-
-  if (!uid || loading) return null;
-
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.hespor.com";
-
-  // Amazon Ads LWA (state carries uid as a fallback link to user)
-  const adsAuthUrl =
-    "https://www.amazon.com/ap/oa"
-    + `?client_id=${process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID}`
-    + "&scope=advertising%3A%3Acampaign_management"
-    + "&response_type=code"
-    + `&redirect_uri=${encodeURIComponent(`${base}/api/ads/callback`)}`
-    + `&state=${encodeURIComponent(uid)}`;
-
-  // SP-API (your app must be approved for external sellers)
-  const spAuthUrl =
-    "https://sellercentral.amazon.com/apps/authorize/consent"
-    + `?application_id=${encodeURIComponent(process.env.NEXT_PUBLIC_SP_APP_ID as string)}`
-    + `&state=${encodeURIComponent(uid)}`
-    + `&redirect_uri=${encodeURIComponent(`${base}/api/sp/callback`)}`;
+  const connectBoth = async () => {
+    // save user prefs before redirecting to auth flows
+    await fetch("/api/bootstrap/prefs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ breakEvenAcos: acos, primaryAsin: asin })
+    });
+    // go to your “universal connect” route that chains SP + Ads auth
+    window.location.href = "/api/connect/start";
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-emerald-500">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow">
-        <h1 className="text-3xl font-bold mb-2 text-gray-900">Connect your Amazon account</h1>
-        <p className="text-gray-700 mb-8">
-          Authorize access to Amazon Ads and the Selling Partner API. You can revoke access anytime in Amazon.
+    <main className="mx-auto max-w-2xl px-6 py-12">
+      <h1 className="text-2xl font-semibold">Connect your Amazon accounts</h1>
+      <p className="mt-2 text-neutral-600">
+        We’ll link SP-API and Amazon Ads, then activate optimization.
+      </p>
+
+      <div className="mt-8 grid gap-4">
+        <label className="block">
+          <span className="text-sm text-neutral-700">Break-even ACOS (%)</span>
+          <input
+            value={acos}
+            onChange={(e) => setAcos(e.target.value)}
+            className="mt-1 w-full rounded-md border px-3 py-2"
+            placeholder="e.g., 28"
+            inputMode="numeric"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm text-neutral-700">Primary ASIN</span>
+          <input
+            value={asin}
+            onChange={(e) => setAsin(e.target.value.trim())}
+            className="mt-1 w-full rounded-md border px-3 py-2"
+            placeholder="e.g., B0XXXXX123"
+          />
+        </label>
+
+        <button
+          onClick={connectBoth}
+          className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-white"
+        >
+          Connect SP-API & Ads
+        </button>
+
+        <p className="text-sm text-neutral-500">
+          By continuing, you agree to our <a className="underline" href="/terms">Terms</a> and <a className="underline" href="/privacy">Privacy</a>.
         </p>
 
-        <div className="space-y-4">
-          {/* ADS button */}
-          <a
-            href={adsAuthUrl}
-            className={[
-              "block w-full text-center rounded-lg border py-3 font-semibold transition",
-              adsOk ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "hover:bg-gray-50",
-              !adsOk ? "ring-2 ring-amber-300" : ""
-            ].join(" ")}
-          >
-            {adsOk ? "✓ Amazon Ads connected" : "1) Authorize Amazon Ads"}
-          </a>
-
-          {/* SP-API button */}
-          <a
-            href={spAuthUrl}
-            className={[
-              "block w-full text-center rounded-lg border py-3 font-semibold transition",
-              spOk ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "hover:bg-gray-50",
-              !spOk ? "ring-2 ring-amber-300" : ""
-            ].join(" ")}
-          >
-            {spOk ? "✓ SP-API connected" : "2) Authorize SP-API"}
-          </a>
+        <div className="mt-8 rounded-lg border p-4 bg-white">
+          <h2 className="font-medium">Need help?</h2>
+          <ul className="list-disc pl-5 text-sm mt-2">
+            <li><a className="underline" href="/support">Support</a></li>
+            <li>Email: <a className="underline" href="mailto:support@hespor.com">support@hespor.com</a></li>
+          </ul>
         </div>
-
-        <p className="mt-6 text-xs text-gray-500">
-          By connecting, you accept our <a href="/terms" className="underline text-emerald-700">Terms</a> and{" "}
-          <a href="/privacy" className="underline text-emerald-700">Privacy Policy</a>.
-        </p>
-
-        {!adsOk || !spOk ? (
-          <p className="mt-4 text-sm text-gray-500">
-            After you click <em>Allow</em> at Amazon, you’ll return here. The connected item turns green;
-            then connect the other one. Once both are connected you’ll be taken to your dashboard.
-          </p>
-        ) : null}
       </div>
-    </div>
+    </main>
   );
 }
