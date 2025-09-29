@@ -1,5 +1,5 @@
 // app/layout.tsx
-import "../styles/globals.css";   // <-- fix the path!
+import "../styles/globals.css";   // ✅ correct relative path
 
 export const metadata = {
   title: "HESPOR",
@@ -9,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-neutral-50">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
