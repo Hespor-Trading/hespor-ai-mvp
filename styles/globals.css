@@ -1,4 +1,6 @@
-/* Minimal global styles without Tailwind */
-:root { color-scheme: light dark; }
-* { box-sizing: border-box; }
-html, body { padding: 0; margin: 0; font-family: system-ui, Arial, sans-serif; }
+/* styles/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* (optional) your global tweaks can live here */
