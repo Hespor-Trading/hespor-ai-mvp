@@ -1,13 +1,9 @@
+/* app/globals.css */
+
+/* If you already keep globals in /styles/globals.css, just import them here: */
+@import "../styles/globals.css";
+
+/* Fallback: if /styles/globals.css is empty, keep Tailwind directives here too */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --hespor-dark: #0a0a0a;
-  --hespor-light: #f8f9fb;
-}
-
-body {
-  @apply bg-[var(--hespor-light)] text-gray-900 antialiased;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial;
-}
