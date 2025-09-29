@@ -3,4 +3,5 @@
 @tailwind components;
 @tailwind utilities;
 
-/* (optional) your global tweaks can live here */
+/* (optional) your global tweaks */
+html, body { height: 100%; }
