@@ -16,7 +16,6 @@ export default function SignUpPage() {
   const emailRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
-  // simple countdown for resend button
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
@@ -65,12 +64,10 @@ export default function SignUpPage() {
       return;
     }
 
-    // If email confirmation is ON, show success message + enable resend after 60s
     if (data?.user && !data?.session) {
       setOk(true);
-      setCooldown(60); // start 60s cooldown before first resend
+      setCooldown(60);
     } else {
-      // If confirmation is OFF, account is created & session exists → go login anyway per your flow
       router.push("/auth/sign-in?new=1");
     }
   }
@@ -98,11 +95,7 @@ export default function SignUpPage() {
       },
     });
 
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-    // sent → lock button again for 60s
+    if (error) { setErr(error.message); return; }
     setCooldown(60);
   }
 
