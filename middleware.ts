@@ -1,19 +1,14 @@
+// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function isPublic(pathname: string) {
-  if (pathname === "/") return true;
-  if (pathname.startsWith("/auth/")) return true;     // sign-in, sign-up, reset, callback
-  if (pathname.startsWith("/api/ads/")) return true;  // Ads OAuth callback
-  return false;
-}
+const isPublic = (p: string) =>
+  p === "/" || p.startsWith("/auth/") || p.startsWith("/api/ads/");
 
-function isLoggedIn(req: NextRequest) {
+const isLoggedIn = (req: NextRequest) => {
   const c = req.cookies;
-  if (c.get("sb-access-token") || c.get("sb:token")) return true;  // Supabase cookies
-  if (c.get("hespor_auth")) return true;                           // (optional) custom
-  return false;
-}
+  return !!(c.get("sb-access-token") || c.get("sb:token") || c.get("hespor_auth"));
+};
 
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
