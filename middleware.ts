@@ -10,10 +10,8 @@ function isPublic(pathname: string) {
 
 function isLoggedIn(req: NextRequest) {
   const c = req.cookies;
-  // Supabase cookies (one or both)
-  if (c.get("sb-access-token") || c.get("sb:token")) return true;
-  // (optional) custom cookie
-  if (c.get("hespor_auth")) return true;
+  if (c.get("sb-access-token") || c.get("sb:token")) return true;  // Supabase cookies
+  if (c.get("hespor_auth")) return true;                           // (optional) custom
   return false;
 }
 
