@@ -5,46 +5,25 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 const strongPw = (pw: string) =>
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,64})/.test(pw); // ≥8, upper, lower, number
-
-function Logo() {
-  return (
-    <div className="flex justify-center mb-6">
-      <Image
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        onError={(e) => {
-          (e.target as any).style.display = "none";
-          const f = document.getElementById("logo-fallback");
-          if (f) (f as any).style.display = "block";
-        }}
-      />
-      <img
-        id="logo-fallback"
-        src="/hespor-logo.png"
-        alt="HESPOR"
-        width={160}
-        height={40}
-        style={{ display: "none" }}
-      />
-    </div>
-  );
-}
 
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [ok, setOk] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [ok, setOk] = useState(false); // show “check your email” state
+  const [cooldown, setCooldown] = useState(0); // seconds left to allow resend
   const emailRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
+    const t = setInterval(
+      () => setCooldown((s) => (s > 0 ? s - 1 : 0)),
+      1000
+    );
     return () => clearInterval(t);
   }, [cooldown]);
 
@@ -156,7 +135,12 @@ export default function SignUpPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-emerald-500">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <Logo />
+        <div className="flex justify-center mb-6">
+          <Image src="/hespor-logo.png" alt="HESPOR" width={160} height={40} />
+          <noscript>
+            <img src="/hespor-logo.png" alt="HESPOR" width="160" height="40" />
+          </noscript>
+        </div>
 
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
           Sign Up for HESPOR
@@ -174,7 +158,9 @@ export default function SignUpPage() {
               disabled={cooldown > 0}
               className="mt-4 w-full rounded-lg border border-gray-300 py-2 font-medium hover:bg-gray-50 transition disabled:opacity-50"
             >
-              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend confirmation email"}
+              {cooldown > 0
+                ? `Resend in ${cooldown}s`
+                : "Resend confirmation email"}
             </button>
 
             <p className="text-xs text-gray-500 mt-2">
