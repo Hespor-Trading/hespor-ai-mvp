@@ -1,4 +1,3 @@
-// app/security/page.tsx
 export const dynamic = "force-static";
 
 export default function SecurityPage() {
@@ -6,7 +5,7 @@ export default function SecurityPage() {
     <div className="min-h-screen bg-emerald-600">
       <main className="mx-auto max-w-3xl px-6 py-16">
         <div className="flex items-center gap-3 mb-8">
-          <img src="/logo.png" alt="Hespor Logo" className="h-10 w-10" />
+          <img src="/hespor-logo.png" alt="Hespor Logo" className="h-10 w-10" />
           <h1 className="text-3xl font-bold text-white">Security Overview</h1>
         </div>
 
@@ -19,7 +18,7 @@ export default function SecurityPage() {
             <h2 className="text-xl font-semibold text-emerald-700">Data Handling</h2>
             <ul className="list-disc pl-6 text-neutral-800 mt-2">
               <li>Only the minimum Seller/Ads scopes required are requested.</li>
-              <li>Credentials stored in AWS Secrets Manager; least-privilege IAM.</li>
+              <li>Credentials in AWS Secrets Manager; least-privilege IAM roles.</li>
               <li>TLS in transit; AWS-managed encryption at rest.</li>
             </ul>
           </div>
