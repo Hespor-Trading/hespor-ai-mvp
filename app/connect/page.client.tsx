@@ -111,3 +111,12 @@ function Inner() {
     </div>
   );
 }
+
+export default function ConnectClient() {
+  // Suspense wrapper satisfies Next’s requirement for useSearchParams
+  return (
+    <Suspense>
+      <Inner />
+    </Suspense>
+  );
+}
