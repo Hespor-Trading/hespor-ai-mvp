@@ -2,16 +2,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/**
- * Public (never blocked) routes — your auth pages & the Ads OAuth callback.
- * Keeping these public preserves your existing Sign In / Sign Up UI & features.
- */
+/** Public routes (never blocked) */
 const PUBLIC_PATHS = new Set<string>([
   "/",                  // landing
-  "/signin",            // your sign-in page
-  "/signup",            // your sign-up page
-  "/auth",              // if you use /auth/* routes
-  "/api/ads/callback",  // OAuth redirect must stay public
+  "/signin",            // sign in page
+  "/signup",            // sign up page (if you have it)
+  "/auth",              // allow /auth/* if you use it
+  "/api/ads/callback",  // Amazon Ads OAuth redirect
+  "/api/devlogin",      // dev login endpoint (this file below)
 ]);
 
 function isPublic(pathname: string) {
@@ -21,14 +19,14 @@ function isPublic(pathname: string) {
   return false;
 }
 
-// Detect a logged-in session (adjust cookie names to your auth provider if needed)
+/** Detect a logged-in session (dev: hespor_auth cookie) */
 function isLoggedIn(req: NextRequest) {
   const c = req.cookies;
-  // NextAuth
+  // NextAuth cookies
   if (c.get("__Secure-next-auth.session-token") || c.get("next-auth.session-token")) return true;
-  // Supabase
+  // Supabase cookies
   if (c.get("sb-access-token") || c.get("sb:token")) return true;
-  // Custom cookie (rename if yours is different)
+  // Dev/custom cookie
   if (c.get("hespor_auth")) return true;
   return false;
 }
@@ -37,14 +35,13 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const { pathname } = url;
 
-  // Always allow public routes
+  // Allow public routes
   if (isPublic(pathname)) return NextResponse.next();
 
   // Everything else requires login (including /connect and /dashboard)
   if (!isLoggedIn(req)) {
     const to = url.clone();
     to.pathname = "/signin";
-    // preserve brand and return path
     const brand = url.searchParams.get("brand") || "DECOGAR";
     to.searchParams.set("brand", brand);
     to.searchParams.set("next", pathname + (url.search ? `?${url.searchParams.toString()}` : ""));
@@ -62,7 +59,6 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(go);
     }
   }
-
   return NextResponse.next();
 }
 
