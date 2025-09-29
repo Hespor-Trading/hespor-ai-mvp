@@ -1,80 +1,110 @@
+// app/connect/page.client.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+function getBrand(): string {
+  const u = new URL(window.location.href);
+  return (u.searchParams.get("brand") || "DECOGAR").trim();
+}
+
+function buildAdsAuthorizeUrl(brand: string) {
+  const clientId = process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID!;
+  const redirect = encodeURIComponent(process.env.NEXT_PUBLIC_AMAZON_ADS_REDIRECT!);
+  // add scopes as needed; campaign mgmt is enough for dashboard/algo
+  const scope = encodeURIComponent("advertising::campaign_management");
+  const state = encodeURIComponent(`brand=${brand}`);
+  return `https://www.amazon.com/ap/oa?client_id=${clientId}&scope=${scope}&response_type=code&redirect_uri=${redirect}&state=${state}`;
+}
 
 export default function ConnectClient() {
-  const router = useRouter();
-  const [acos, setAcos] = useState("28");
-  const [asin, setAsin] = useState("");
+  const [adsConnected, setAdsConnected] = useState(false);
+  const [spConnected, setSpConnected] = useState(false);
+  const brand = useMemo(() => getBrand(), []);
+  const adsUrl = useMemo(() => buildAdsAuthorizeUrl(brand), [brand]);
 
   useEffect(() => {
-    (async () => {
-      const sb = supabaseBrowser();
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) router.replace("/auth/sign-in");
-    })();
-  }, [router]);
-
-  const connectBoth = async () => {
-    // save user prefs before redirecting to auth flows
-    await fetch("/api/bootstrap/prefs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ breakEvenAcos: acos, primaryAsin: asin })
-    });
-    // go to your “universal connect” route that chains SP + Ads auth
-    window.location.href = "/api/connect/start";
-  };
+    const ck = document.cookie.split(";").map((s) => s.trim());
+    setAdsConnected(ck.some((c) => c.startsWith("ads_connected=1")));
+    setSpConnected(ck.some((c) => c.startsWith("spapi_connected=1")));
+  }, []);
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold">Connect your Amazon accounts</h1>
-      <p className="mt-2 text-neutral-600">
-        We’ll link SP-API and Amazon Ads, then activate optimization.
-      </p>
+    <main className="min-h-screen w-full flex items-center justify-center bg-neutral-50 p-6">
+      <div className="w-full max-w-3xl grid gap-6">
+        <header className="text-center">
+          <h1 className="text-3xl font-semibold">Connect Your Accounts</h1>
+          <p className="text-neutral-600 mt-2">
+            For now, only <span className="font-medium">Amazon Ads</span> is required to enter the dashboard. SP-API is optional.
+          </p>
+        </header>
 
-      <div className="mt-8 grid gap-4">
-        <label className="block">
-          <span className="text-sm text-neutral-700">Break-even ACOS (%)</span>
-          <input
-            value={acos}
-            onChange={(e) => setAcos(e.target.value)}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            placeholder="e.g., 28"
-            inputMode="numeric"
-          />
-        </label>
+        <section className="grid md:grid-cols-2 gap-6">
+          {/* Amazon Ads */}
+          <div className="rounded-2xl shadow-sm border bg-white p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">Amazon Ads API</h2>
+              {adsConnected ? (
+                <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Connected</span>
+              ) : (
+                <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">Required</span>
+              )}
+            </div>
+            <p className="text-sm text-neutral-600 mb-4">
+              Authorize campaign access so Hespor can show your Ads dashboard and run optimizations.
+            </p>
 
-        <label className="block">
-          <span className="text-sm text-neutral-700">Primary ASIN</span>
-          <input
-            value={asin}
-            onChange={(e) => setAsin(e.target.value.trim())}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            placeholder="e.g., B0XXXXX123"
-          />
-        </label>
+            {!adsConnected ? (
+              <a
+                href={adsUrl}
+                className="inline-flex items-center justify-center rounded-xl px-4 py-2 border bg-black text-white hover:opacity-90 transition"
+              >
+                Connect Amazon Ads
+              </a>
+            ) : (
+              <Link
+                href={`/dashboard?brand=${encodeURIComponent(brand)}`}
+                className="inline-flex items-center justify-center rounded-xl px-4 py-2 border bg-emerald-600 text-white hover:bg-emerald-700 transition"
+              >
+                Continue to Dashboard
+              </Link>
+            )}
 
-        <button
-          onClick={connectBoth}
-          className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-white"
-        >
-          Connect SP-API & Ads
-        </button>
+            <p className="text-[11px] text-neutral-500 mt-3">Brand: {brand}</p>
+          </div>
 
-        <p className="text-sm text-neutral-500">
-          By continuing, you agree to our <a className="underline" href="/terms">Terms</a> and <a className="underline" href="/privacy">Privacy</a>.
-        </p>
+          {/* SP-API */}
+          <div className="rounded-2xl shadow-sm border bg-white p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">Amazon SP-API</h2>
+              {spConnected ? (
+                <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Connected</span>
+              ) : (
+                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">Optional</span>
+              )}
+            </div>
+            <p className="text-sm text-neutral-600 mb-4">
+              SP-API lets us pull catalog, orders, and inventory. You can add it later — not required to view the dashboard today.
+            </p>
 
-        <div className="mt-8 rounded-lg border p-4 bg-white">
-          <h2 className="font-medium">Need help?</h2>
-          <ul className="list-disc pl-5 text-sm mt-2">
-            <li><a className="underline" href="/support">Support</a></li>
-            <li>Email: <a className="underline" href="mailto:support@hespor.com">support@hespor.com</a></li>
-          </ul>
-        </div>
+            <button
+              disabled
+              className="inline-flex items-center justify-center rounded-xl px-4 py-2 border bg-neutral-200 text-neutral-500 cursor-not-allowed"
+              title="We’ll enable this when your SP-API app is public."
+            >
+              Connect SP-API (disabled)
+            </button>
+
+            <p className="text-[11px] text-neutral-500 mt-3">Brand: {brand}</p>
+          </div>
+        </section>
+
+        {!adsConnected && (
+          <p className="text-center text-sm text-neutral-600">
+            Once Ads is connected, you can enter the dashboard immediately — no SP-API needed for now.
+          </p>
+        )}
       </div>
     </main>
   );
