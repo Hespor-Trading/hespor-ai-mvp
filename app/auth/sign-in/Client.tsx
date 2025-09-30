@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { toast } from "sonner";
 
 type FriendlyError =
   | "invalid_credentials"
@@ -28,9 +29,9 @@ export default function SignInClient() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (params.get("created") === "1") alert("Account created! Please sign in.");
-    if (params.get("verified") === "1") alert("Email verified! You can sign in now.");
-    if (params.get("reset") === "1") alert("Password updated. Sign in with your new password.");
+    if (params.get("created") === "1") toast.success("Account created. Please sign in.");
+    if (params.get("verified") === "1") toast.success("Email verified! You can sign in now.");
+    if (params.get("reset") === "1") toast.success("Password updated. Sign in with your new password.");
   }, [params]);
 
   async function signInWithPassword(e: React.FormEvent<HTMLFormElement>) {
@@ -135,13 +136,19 @@ export default function SignInClient() {
 
         <div className="mt-6 text-center text-xs text-black">
           By using Hespor, you agree to our{" "}
-          <Link href="/auth/sign-up#legal" className="underline">
+          <button
+            onClick={() => (window.location.href = "/auth/sign-up#legal")}
+            className="underline"
+          >
             Terms &amp; Conditions
-          </Link>{" "}
+          </button>{" "}
           and{" "}
-          <Link href="/auth/sign-up#legal" className="underline">
+          <button
+            onClick={() => (window.location.href = "/auth/sign-up#legal")}
+            className="underline"
+          >
             Privacy Policy
-          </Link>
+          </button>
           .
         </div>
       </div>
