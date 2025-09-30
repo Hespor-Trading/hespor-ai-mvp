@@ -1,27 +1,19 @@
-// app/layout.tsx
-import "../styles/globals.css";
-import type { ReactNode } from "react";
+import "./globals.css";
+import type { Metadata } from "next";
+import { Toaster } from "sonner";
 
-export const metadata = {
-  title: "HESPOR",
-  description: "Hespor AI",
+export const metadata: Metadata = {
+  title: "Hespor",
+  description: "Hespor Ads Optimization",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        {/* Keep Tailwind CDN for instant styling on auth pages */}
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              tailwind.config = { theme: { extend: {} } }
-            `,
-          }}
-        />
-      </head>
-      <body className="min-h-screen">{children}</body>
+      <body>
+        {children}
+        <Toaster position="top-right" richColors />
+      </body>
     </html>
   );
 }
