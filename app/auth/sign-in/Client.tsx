@@ -68,6 +68,13 @@ export default function SignInClient() {
     if (error) setErr(errorMap.unknown);
   }
 
+  // 🔑 opens shared LegalModal
+  function openLegal(e: React.MouseEvent) {
+    e.preventDefault();
+    window.dispatchEvent(new CustomEvent("open-legal"));
+    history.replaceState(null, "", "#legal");
+  }
+
   return (
     <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
@@ -136,17 +143,11 @@ export default function SignInClient() {
 
         <div className="mt-6 text-center text-xs text-black">
           By using Hespor, you agree to our{" "}
-          <button
-            onClick={() => (window.location.href = "/auth/sign-up#legal")}
-            className="underline"
-          >
+          <button onClick={openLegal} className="underline">
             Terms &amp; Conditions
           </button>{" "}
           and{" "}
-          <button
-            onClick={() => (window.location.href = "/auth/sign-up#legal")}
-            className="underline"
-          >
+          <button onClick={openLegal} className="underline">
             Privacy Policy
           </button>
           .
