@@ -1,14 +1,12 @@
-// Server component for Sign-Up page
-import { loadLegal } from "@/lib/legal";
-import LegalModal from "@/components/LegalModal";
-import SignUpClient from "./Client";
+// app/auth/sign-up/page.tsx
+import NextDynamic from "next/dynamic";
 
-export default async function Page() {
-  const { terms, privacy } = await loadLegal();
-  return (
-    <>
-      <SignUpClient />
-      <LegalModal terms={terms} privacy={privacy} />
-    </>
-  );
+// Prevent prerendering issues and keep this page as a client-driven screen
+export const dynamic = "force-dynamic";
+
+// Load the client-side sign-up UI (which also controls the LegalModal)
+const Client = NextDynamic(() => import("./Client"), { ssr: false });
+
+export default function Page() {
+  return <Client />;
 }
