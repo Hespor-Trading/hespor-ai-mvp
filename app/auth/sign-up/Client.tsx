@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
+import LegalModal from "@/components/LegalModal";
 
 const SignUpSchema = z.object({
   email: z.string().email(),
@@ -26,10 +27,12 @@ const SignUpSchema = z.object({
 
 export default function SignUpClient() {
   const router = useRouter();
+  const [legalOpen, setLegalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     const fd = new FormData(e.currentTarget);
     const payload = {
       email: String(fd.get("email") || "").trim(),
@@ -64,35 +67,35 @@ export default function SignUpClient() {
 
       toast.success("Account created. Please sign in.");
       router.push("/auth/sign-in?created=1");
-    } catch (err) {
+    } catch {
       toast.error("Network error");
       setSubmitting(false);
     }
   }
 
-  // 🔑 opens shared LegalModal
-  function openLegal(e: React.MouseEvent) {
-    e.preventDefault();
-    window.dispatchEvent(new CustomEvent("open-legal"));
-    history.replaceState(null, "", "#legal");
-  }
-
   return (
     <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-xl rounded-2xl bg-white/95 shadow-xl p-8">
-        <div className="flex flex-col items-center gap-3 mb-6">
+        <div className="mb-6 flex flex-col items-center gap-3">
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
           <h1 className="text-xl font-semibold">Create your Hespor account</h1>
         </div>
 
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium">Email</label>
             <input name="email" type="email" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
           </div>
+
           <div className="md:col-span-2">
             <label className="block text-sm font-medium">Password</label>
-            <input name="password" type="password" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" placeholder="Min 8 chars, upper, number, symbol" />
+            <input
+              name="password"
+              type="password"
+              required
+              className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring"
+              placeholder="Min 8 chars, upper, number, symbol"
+            />
           </div>
 
           <div>
@@ -114,12 +117,12 @@ export default function SignUpClient() {
           </div>
 
           <div className="md:col-span-2 flex items-start gap-2 rounded-md border p-3">
-            <input id="acceptedLegal" name="acceptedLegal" type="checkbox" className="mt-1" required />
+            <input id="acceptedLegal" name="acceptedLegal" type="checkbox" className="mt-1" />
             <label htmlFor="acceptedLegal" className="text-sm">
               I agree to{" "}
-              <a href="#legal" onClick={openLegal} className="underline">
+              <button type="button" onClick={() => setLegalOpen(true)} className="underline">
                 Terms &amp; Conditions and Privacy Policy
-              </a>
+              </button>
               .
             </label>
           </div>
@@ -127,7 +130,7 @@ export default function SignUpClient() {
           <div className="md:col-span-2">
             <button
               disabled={submitting}
-              className="w-full rounded-lg bg-black text-white py-2.5 hover:opacity-90 disabled:opacity-50"
+              className="w-full rounded-lg bg-black py-2.5 text-white hover:opacity-90 disabled:opacity-50"
               type="submit"
             >
               {submitting ? "Creating..." : "Create account"}
@@ -141,6 +144,8 @@ export default function SignUpClient() {
             </Link>
           </div>
         </form>
+
+        <LegalModal open={legalOpen} onClose={() => setLegalOpen(false)} />
       </div>
     </div>
   );
