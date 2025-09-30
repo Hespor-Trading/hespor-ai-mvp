@@ -7,12 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const schema = z.object({
   email: z.string().email(),
-  password: z
-    .string()
-    .min(8)
-    .regex(/[A-Z]/)
-    .regex(/[0-9]/)
-    .regex(/[^A-Za-z0-9]/),
+  password: z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/).regex(/[^A-Za-z0-9]/),
   first_name: z.string().trim().min(1),
   last_name: z.string().trim().min(1),
   business_name: z.string().trim().min(1),
@@ -34,9 +29,6 @@ export async function POST(req: Request) {
     }
     const { email, password, first_name, last_name, business_name, brand_name } = parsed.data;
 
-    // Server-enforced: do not proceed if legal not accepted (already enforced by schema)
-
-    // Perform sign up using anon key (standard public sign-up)
     const publicClient = createClient(SUPABASE_URL, ANON);
     const { data, error } = await publicClient.auth.signUp({
       email,
@@ -58,7 +50,6 @@ export async function POST(req: Request) {
 
     const userId = data.user?.id;
     if (userId) {
-      // Upsert into profiles with service role so RLS doesn't block creation
       const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { error: upsertErr } = await adminClient
         .from("profiles")
@@ -72,8 +63,8 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
+
       if (upsertErr) {
-        // Not fatal for the sign-up, but return 202 so we can retry later if needed
         console.warn("profiles upsert error:", upsertErr);
       }
     }
