@@ -1,12 +1,18 @@
-import { Suspense } from "react";
+// Server component
+import { loadLegal } from "@/lib/legal";
+import LegalModal from "@/components/LegalModal";
 import SignInClient from "./Client";
 
-export const dynamic = "force-dynamic";
+export default async function Page() {
+  const { terms, privacy } = await loadLegal();
 
-export default function Page() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-emerald-600" />}>
+    <>
+      {/* Your existing sign-in client component */}
       <SignInClient />
-    </Suspense>
+
+      {/* Shared legal modal (mounted on this page too) */}
+      <LegalModal terms={terms} privacy={privacy} />
+    </>
   );
 }
