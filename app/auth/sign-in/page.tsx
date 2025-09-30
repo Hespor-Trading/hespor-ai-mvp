@@ -1,9 +1,10 @@
 // app/auth/sign-in/page.tsx
-import dynamic from "next/dynamic";
+import NextDynamic from "next/dynamic";
 
-export const dynamic = "force-dynamic"; // avoid static prerender/export errors
+// Tell Next not to prerender this page (prevents the sign-in export error)
+export const dynamic = "force-dynamic";
 
-const Client = dynamic(() => import("./Client"), { ssr: false });
+const Client = NextDynamic(() => import("./Client"), { ssr: false });
 
 export default function Page() {
   return <Client />;
