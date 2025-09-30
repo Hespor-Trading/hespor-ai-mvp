@@ -5,11 +5,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
 
-const supabase = createClient(SUPABASE_URL!, SERVICE_ROLE!);
+const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
 
 export async function POST(req: Request) {
@@ -29,12 +29,13 @@ export async function POST(req: Request) {
       if (ttl > 0) return new NextResponse(`Please wait ${ttl}s`, { status: 429 });
     }
 
-    const { data, error } = await supabase.auth.admin.generateLink({
+    // Correct API for resending verification: auth.resend (not admin.generateLink)
+    const { error } = await supabase.auth.resend({
       type: "signup",
       email,
       options: {
-        // NOTE: for admin.generateLink this is "redirectTo", not "emailRedirectTo"
-        redirectTo: `${APP_URL}/auth/sign-in?verified=1`,
+        // resend uses emailRedirectTo (same as signUp)
+        emailRedirectTo: `${APP_URL}/auth/sign-in?verified=1`,
       },
     });
 
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
 
     if (redis) await redis.set(key, "1", "EX", 60);
 
-    return NextResponse.json({ ok: true, email: data?.user?.email ?? email });
+    return NextResponse.json({ ok: true, email });
   } catch (e) {
     console.error("resend error", e);
     return new NextResponse("Server error", { status: 500 });
