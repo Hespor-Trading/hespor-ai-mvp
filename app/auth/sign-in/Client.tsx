@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ const errorMap: Record<FriendlyError, string> = {
   unknown: "Something went wrong. Please try again.",
 };
 
-export default function SignInClient() {
+function Inner() {
   const router = useRouter();
   const params = useSearchParams();
   const supabase = createClientComponentClient();
@@ -73,7 +73,7 @@ export default function SignInClient() {
   return (
     <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
-        <div className="mb-6 flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3 mb-6">
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
           <h1 className="text-xl font-semibold">Sign in to Hespor</h1>
         </div>
@@ -117,7 +117,7 @@ export default function SignInClient() {
           <button
             type="button"
             onClick={signInWithGoogle}
-            className="w-full rounded-lg border border-black py-2.5 transition hover:bg-black hover:text-white"
+            className="w-full rounded-lg border border-black py-2.5 hover:bg-black hover:text-white transition"
           >
             Continue with Google
           </button>
@@ -138,18 +138,36 @@ export default function SignInClient() {
 
         <div className="mt-6 text-center text-xs text-black">
           By using Hespor, you agree to our{" "}
-          <button onClick={() => setLegalOpen(true)} className="underline">
+          <button
+            type="button"
+            onClick={() => setLegalOpen(true)}
+            className="underline"
+          >
             Terms &amp; Conditions
           </button>{" "}
           and{" "}
-          <button onClick={() => setLegalOpen(true)} className="underline">
+          <button
+            type="button"
+            onClick={() => setLegalOpen(true)}
+            className="underline"
+          >
             Privacy Policy
           </button>
           .
         </div>
 
+        {/* Legal modal (same UI as Sign-up) */}
         <LegalModal open={legalOpen} onClose={() => setLegalOpen(false)} />
       </div>
     </div>
+  );
+}
+
+export default function SignInClient() {
+  // Suspense keeps Next happy when useSearchParams is used
+  return (
+    <Suspense>
+      <Inner />
+    </Suspense>
   );
 }
