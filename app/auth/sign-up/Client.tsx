@@ -26,7 +26,6 @@ const SignUpSchema = z.object({
 
 export default function SignUpClient() {
   const router = useRouter();
-  const [legalOpen, setLegalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -71,8 +70,15 @@ export default function SignUpClient() {
     }
   }
 
+  // 🔑 opens shared LegalModal
+  function openLegal(e: React.MouseEvent) {
+    e.preventDefault();
+    window.dispatchEvent(new CustomEvent("open-legal"));
+    history.replaceState(null, "", "#legal");
+  }
+
   return (
-    <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6" id="legal">
+    <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-xl rounded-2xl bg-white/95 shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
@@ -108,12 +114,12 @@ export default function SignUpClient() {
           </div>
 
           <div className="md:col-span-2 flex items-start gap-2 rounded-md border p-3">
-            <input id="acceptedLegal" name="acceptedLegal" type="checkbox" className="mt-1" />
+            <input id="acceptedLegal" name="acceptedLegal" type="checkbox" className="mt-1" required />
             <label htmlFor="acceptedLegal" className="text-sm">
               I agree to{" "}
-              <button type="button" onClick={() => setLegalOpen(true)} className="underline">
+              <a href="#legal" onClick={openLegal} className="underline">
                 Terms &amp; Conditions and Privacy Policy
-              </button>
+              </a>
               .
             </label>
           </div>
@@ -135,24 +141,6 @@ export default function SignUpClient() {
             </Link>
           </div>
         </form>
-
-        {/* Simple native dialog with embedded legal pages */}
-        {legalOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="w-[95%] md:w-[800px] max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl">
-              <div className="bg-emerald-600 text-black px-4 py-3 flex items-center justify-between">
-                <h2 className="font-semibold">Terms &amp; Conditions + Privacy Policy</h2>
-                <button onClick={() => setLegalOpen(false)} className="underline">Close</button>
-              </div>
-              <div className="bg-white">
-                <div className="grid md:grid-cols-2">
-                  <iframe title="Terms" src="/legal/terms" className="w-full h-[65vh] border-r" />
-                  <iframe title="Privacy" src="/legal/privacy" className="w-full h-[65vh]" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
