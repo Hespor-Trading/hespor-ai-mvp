@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
+import LegalModal from "@/components/LegalModal";
 
 type FriendlyError =
   | "invalid_credentials"
@@ -27,6 +28,7 @@ export default function SignInClient() {
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [legalOpen, setLegalOpen] = useState(false);
 
   useEffect(() => {
     if (params.get("created") === "1") toast.success("Account created. Please sign in.");
@@ -68,17 +70,10 @@ export default function SignInClient() {
     if (error) setErr(errorMap.unknown);
   }
 
-  // 🔑 opens shared LegalModal
-  function openLegal(e: React.MouseEvent) {
-    e.preventDefault();
-    window.dispatchEvent(new CustomEvent("open-legal"));
-    history.replaceState(null, "", "#legal");
-  }
-
   return (
     <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
-        <div className="flex flex-col items-center gap-3 mb-6">
+        <div className="mb-6 flex flex-col items-center gap-3">
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
           <h1 className="text-xl font-semibold">Sign in to Hespor</h1>
         </div>
@@ -122,7 +117,7 @@ export default function SignInClient() {
           <button
             type="button"
             onClick={signInWithGoogle}
-            className="w-full rounded-lg border border-black py-2.5 hover:bg-black hover:text-white transition"
+            className="w-full rounded-lg border border-black py-2.5 transition hover:bg-black hover:text-white"
           >
             Continue with Google
           </button>
@@ -143,15 +138,17 @@ export default function SignInClient() {
 
         <div className="mt-6 text-center text-xs text-black">
           By using Hespor, you agree to our{" "}
-          <button onClick={openLegal} className="underline">
+          <button onClick={() => setLegalOpen(true)} className="underline">
             Terms &amp; Conditions
           </button>{" "}
           and{" "}
-          <button onClick={openLegal} className="underline">
+          <button onClick={() => setLegalOpen(true)} className="underline">
             Privacy Policy
           </button>
           .
         </div>
+
+        <LegalModal open={legalOpen} onClose={() => setLegalOpen(false)} />
       </div>
     </div>
   );
