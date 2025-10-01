@@ -1,29 +1,33 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const SECRET = process.env.STRIPE_SECRET_KEY;
+    // Accept either name you’ve used
     const PRICE =
       process.env.STRIPE_PRICE_ID ?? process.env.STRIPE_PRICE_ID_49;
 
     if (!SECRET || !PRICE) {
       return NextResponse.json(
-        { error: "Missing Stripe envs" },
+        { error: "missing_env", message: "Missing Stripe envs" },
         { status: 500 }
       );
     }
 
-    // ✅ No apiVersion passed to avoid TS union mismatch
+    // Do not pass apiVersion so TypeScript union types don’t conflict
     const stripe = new Stripe(SECRET);
 
-    // Optional overrides from client; safe defaults
+    // Optional overrides (successUrl/cancelUrl) from client
     const body = await req.json().catch(() => ({} as any));
     const base =
-      process.env.NEXT_PUBLIC_APP_URL || "https://app.hespor.com";
+      process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://app.hespor.com";
 
-    const successUrl = body?.successUrl || `${base}/billing/success`;
-    const cancelUrl = body?.cancelUrl || `${base}/billing/cancel`;
+    const successUrl = body?.successUrl || `${base}/success`;
+    const cancelUrl = body?.cancelUrl || `${base}/cancel`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
