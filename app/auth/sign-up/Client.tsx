@@ -14,127 +14,136 @@ const SignUpSchema = z.object({
     .string()
     .min(8, "Min 8 characters")
     .regex(/[A-Z]/, "Include at least one uppercase letter")
-    .regex(/[0-9]/, "Include at least one number")
-    .regex(/[^A-Za-z0-9]/, "Include at least one special character"),
-  first_name: z.string().trim().min(1, "First name is required"),
-  last_name: z.string().trim().min(1, "Last name is required"),
-  business_name: z.string().trim().min(1, "Business name is required"),
-  brand_name: z.string().trim().min(1, "Amazon brand name is required"),
-  acceptedLegal: z.literal(true, {
-    errorMap: () => ({ message: "You must agree to Terms & Privacy" }),
-  }),
+    .regex(/[0-9]/, "Include at least one number"),
+  businessName: z.string().min(1, "Required"),
+  brand: z.string().min(1, "Required"),
+  fullName: z.string().min(1, "Required"),
 });
 
 export default function SignUpClient() {
   const router = useRouter();
   const [legalOpen, setLegalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    businessName: "",
+    brand: "",
+    fullName: "",
+  });
+
+  function set<K extends keyof typeof form>(k: K, v: string) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    const fd = new FormData(e.currentTarget);
-    const payload = {
-      email: String(fd.get("email") || "").trim(),
-      password: String(fd.get("password") || ""),
-      first_name: String(fd.get("first_name") || "").trim(),
-      last_name: String(fd.get("last_name") || "").trim(),
-      business_name: String(fd.get("business_name") || "").trim(),
-      brand_name: String(fd.get("brand_name") || "").trim(),
-      acceptedLegal: Boolean(fd.get("acceptedLegal")),
-    };
-
-    const parsed = SignUpSchema.safeParse(payload);
+    const parsed = SignUpSchema.safeParse(form);
     if (!parsed.success) {
-      const msg = parsed.error.errors[0]?.message || "Check your inputs";
-      return toast.error(msg);
+      const msg = parsed.error.issues[0]?.message || "Please check your inputs";
+      toast.error(msg);
+      return;
     }
-
-    setSubmitting(true);
     try {
-      const res = await fetch("/auth/register", {
+      setLoading(true);
+      const res = await fetch("/app/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify(form),
       });
-
       if (!res.ok) {
-        const text = await res.text();
-        toast.error(text || "Sign up failed");
-        setSubmitting(false);
+        toast.error("Sign up failed. Please try again.");
         return;
       }
-
-      toast.success("Check your email to confirm your account.");
-      router.push("/auth/sign-in?created=1");
-    } catch {
-      toast.error("Network error");
-      setSubmitting(false);
+      router.replace("/auth/verify/pending");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-xl rounded-2xl bg-white/95 shadow-xl p-8">
-        <div className="mb-6 flex flex-col items-center gap-3">
-          <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
+        <div className="flex flex-col items-center gap-3 mb-6">
+          {/* ✅ ensure logo always renders */}
+          <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority unoptimized />
           <h1 className="text-xl font-semibold">Create your Hespor account</h1>
         </div>
 
-        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium">Email</label>
-            <input name="email" type="email" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <input
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              type="email"
+              placeholder="you@company.com"
+              required
+            />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium">Password</label>
+            <label className="block text-sm font-medium mb-1">Password</label>
             <input
-              name="password"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
               type="password"
+              placeholder="Min 8 chars, 1 uppercase, 1 number"
               required
-              className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring"
-              placeholder="Min 8 chars, upper, number, symbol"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">First name</label>
-            <input name="first_name" type="text" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Last name</label>
-            <input name="last_name" type="text" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium">Business name</label>
-            <input name="business_name" type="text" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Amazon brand name</label>
-            <input name="brand_name" type="text" required className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:ring" />
+            <label className="block text-sm font-medium mb-1">Business name</label>
+            <input
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.businessName}
+              onChange={(e) => set("businessName", e.target.value)}
+              placeholder="Your company"
+              required
+            />
           </div>
 
-          <div className="md:col-span-2 flex items-start gap-2 rounded-md border p-3">
-            <input id="acceptedLegal" name="acceptedLegal" type="checkbox" className="mt-1" />
-            <label htmlFor="acceptedLegal" className="text-sm">
-              I agree to{" "}
-              <button type="button" onClick={() => setLegalOpen(true)} className="underline">
-                Terms &amp; Conditions and Privacy Policy
-              </button>
-              .
-            </label>
+          <div>
+            <label className="block text-sm font-medium mb-1">Brand</label>
+            <input
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.brand}
+              onChange={(e) => set("brand", e.target.value)}
+              placeholder="Your brand"
+              required
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-1">Full name</label>
+            <input
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.fullName}
+              onChange={(e) => set("fullName", e.target.value)}
+              placeholder="John Carter"
+              required
+            />
           </div>
 
           <div className="md:col-span-2">
             <button
-              disabled={submitting}
-              className="w-full rounded-lg bg-black py-2.5 text-white hover:opacity-90 disabled:opacity-50"
               type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-emerald-600 text-white py-2 font-semibold hover:bg-emerald-700 disabled:opacity-60"
             >
-              {submitting ? "Creating..." : "Create account"}
+              {loading ? "Creating account..." : "Create account"}
             </button>
+          </div>
+
+          <div className="md:col-span-2 text-xs text-center text-gray-600">
+            By signing up, you agree to the{" "}
+            <button type="button" className="underline" onClick={() => setLegalOpen(true)}>
+              Terms & Privacy
+            </button>
+            .
           </div>
 
           <div className="md:col-span-2 text-center text-sm">
