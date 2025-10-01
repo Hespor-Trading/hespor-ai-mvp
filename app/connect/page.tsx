@@ -1,24 +1,24 @@
 "use client";
 
+import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
 
 export const dynamic = "force-dynamic";
 
-export default function ConnectPage() {
+function ConnectInner() {
   const params = useSearchParams();
   const error = params.get("error");
 
   const humanError = useMemo(() => {
     if (!error) return null;
     if (error.includes("LWA token exchange failed")) {
-      return "Amazon Login token exchange failed. Most often this is a Client ID/Secret mismatch or redirect URL mismatch.";
+      return "Amazon Login token exchange failed. Check LWA Client ID/Secret and the exact redirect URL.";
     }
-    if (error.includes("AccessDenied") || error.includes("SecretsManager")) {
-      return "AWS Secrets Manager permission denied. The IAM user for your AWS keys needs SecretsManager Create/Put/Get permissions.";
+    if (error.includes("AccessDenied") || error.toLowerCase().includes("secretsmanager")) {
+      return "AWS Secrets Manager permission denied. Attach SecretsManager Create/Put/Get to the IAM user used by Vercel.";
     }
     if (error.includes("missing_authorization_code")) {
-      return "Amazon did not return an authorization code.";
+      return "Amazon did not return an authorization code. Try again.";
     }
     return error;
   }, [error]);
@@ -45,8 +45,8 @@ export default function ConnectPage() {
 
       <div className="rounded-2xl border p-6 space-y-3">
         <p className="text-sm text-slate-600">
-          Step 1: Connect your Amazon accounts. <b>Amazon Ads</b> is required to
-          run campaigns. <b>SP-API</b> is optional for now.
+          Step 1: Connect your Amazon accounts. <b>Amazon Ads</b> is required to run
+          campaigns. <b>SP-API</b> is optional for now.
         </p>
 
         <button
@@ -64,5 +64,14 @@ export default function ConnectPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ConnectPage() {
+  // ✅ Needed for Next.js App Router: hooks like useSearchParams must be inside Suspense.
+  return (
+    <Suspense fallback={<div className="p-6">Loading…</div>}>
+      <ConnectInner />
+    </Suspense>
   );
 }
