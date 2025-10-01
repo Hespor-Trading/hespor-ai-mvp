@@ -32,36 +32,63 @@ function Inner() {
   const [err, setErr] = useState<FriendlyError | null>(null);
   const [legalOpen, setLegalOpen] = useState(false);
 
+  // Surface URL ?error if present
   useEffect(() => {
     const error = search.get("error");
-    if (error) setErr("unknown");
+    if (error) {
+      setErr("unknown");
+      toast.error("Sign-in failed. Please try again.");
+    }
   }, [search]);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setErr(null);
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        if (error.message.toLowerCase().includes("email not confirmed")) setErr("email_not_confirmed");
-        else if (error.message.toLowerCase().includes("invalid")) setErr("invalid_credentials");
-        else if (error.message.toLowerCase().includes("rate")) setErr("rate_limited");
-        else setErr("unknown");
+      // Basic validation before network call
+      if (!email || !password) {
+        setErr("unknown");
+        toast.error("Please enter email and password.");
         return;
       }
 
-      // ✅ Password sign-in → go straight to /connect (avoid callback race)
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("email not confirmed")) setErr("email_not_confirmed");
+        else if (msg.includes("invalid")) setErr("invalid_credentials");
+        else if (msg.includes("rate")) setErr("rate_limited");
+        else setErr("unknown");
+        toast.error(errorMap[err ?? "unknown"]);
+        return;
+      }
+
+      // ✅ Password login → go directly to /connect (no callback race)
       router.replace("/connect");
+      toast.success("Signed in.");
+    } catch (e) {
+      console.error("SIGN-IN ERROR:", e);
+      setErr("unknown");
+      toast.error("Could not sign in. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
+  // Extra safety: also trigger submit if user clicks the button directly
+  const onClickSubmit = () => {
+    // This is just a fallback for some edge browsers; form submit remains primary
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
+          {/* ensure logo renders even if optimizer misbehaves */}
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority unoptimized />
           <h1 className="text-xl font-semibold">Sign in to Hespor</h1>
         </div>
@@ -72,7 +99,7 @@ function Inner() {
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input
@@ -80,10 +107,13 @@ function Inner() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
+              inputMode="email"
+              autoComplete="email"
               placeholder="you@company.com"
               required
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
             <input
@@ -91,6 +121,7 @@ function Inner() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
+              autoComplete="current-password"
               placeholder="••••••••"
               required
             />
@@ -98,6 +129,7 @@ function Inner() {
 
           <button
             type="submit"
+            onClick={onClickSubmit}
             disabled={loading}
             className="w-full rounded-lg bg-emerald-600 text-white py-2 font-semibold hover:bg-emerald-700 disabled:opacity-60"
           >
