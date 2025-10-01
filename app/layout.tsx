@@ -1,18 +1,16 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Hespor",
-  description: "Hespor Ads Optimization",
+  description: "Hespor Ads Assistant",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-emerald-50 text-slate-900">
         {children}
-        <Toaster position="top-right" richColors />
       </body>
     </html>
   );
