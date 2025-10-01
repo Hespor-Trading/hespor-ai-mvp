@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
-import { readableStreamToBytes } from "node:stream/web";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const REGION = process.env.AWS_REGION || "ca-central-1";
 const BUCKET = process.env.HESPOR_S3_BUCKET!;
-
 const s3 = new S3Client({ region: REGION });
 
-function todayISO() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+async function bodyToString(body: any): Promise<string> {
+  if (!body) return "";
+  // In Node 18+/Vercel, AWS SDK often provides a web ReadableStream with transformToString
+  // @ts-ignore
+  if (typeof body.transformToString === "function") {
+    // @ts-ignore
+    return await body.transformToString();
+  }
+  // Node.js Readable stream fallback
+  return await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    body.on("data", (c: Buffer) => chunks.push(c));
+    body.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    body.on("error", reject);
+  });
 }
 
 export async function GET(req: NextRequest) {
@@ -20,24 +30,26 @@ export async function GET(req: NextRequest) {
   const brand = u.searchParams.get("brand") || "default";
   const range = u.searchParams.get("range") || "30d";
 
-  // Look for any processed rollup file first; if none, look for a raw folder (return zeros)
   try {
+    // Look for any processed rollup file first; if none, we’ll return an empty summary
     const prefix = `ads/processed/${brand}/`;
-    const list = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, MaxKeys: 1 }));
+    const list = await s3.send(
+      new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, MaxKeys: 1 })
+    );
+
     if (list.Contents && list.Contents.length > 0) {
-      // read the first rollups.json we find (you can refine date filtering later)
       const key = list.Contents[0].Key!;
       const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-      // @ts-ignore
-      const bytes = await obj.Body?.transformToByteArray?.() || new Uint8Array();
-      const json = JSON.parse(new TextDecoder().decode(bytes));
+      const text = await bodyToString(obj.Body as any);
+      const json = JSON.parse(text);
       return NextResponse.json({
         ...json,
         period: range,
       });
     }
   } catch (e) {
-    // fallthrough to empty
+    // swallow and fall through to empty state
+    console.error("summary route error:", e);
   }
 
   // Empty-state default
