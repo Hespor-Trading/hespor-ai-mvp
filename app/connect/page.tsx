@@ -1,24 +1,15 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-
 export const dynamic = "force-dynamic";
 
-function ConnectInner() {
-  const params = useSearchParams();
-  const brand = params.get("brand") || "default";
-
+export default function ConnectPage() {
   function onAds() {
-    const url = new URL("/api/ads/start", window.location.origin);
-    url.searchParams.set("brand", brand);
-    window.location.href = url.toString();
+    // Minimal: just hit the server route (no params, no Suspense)
+    window.location.href = "/api/ads/start";
   }
 
   function onSpapi() {
-    const url = new URL("/api/sp/start", window.location.origin);
-    url.searchParams.set("brand", brand);
-    window.location.href = url.toString();
+    window.location.href = "/api/sp/start";
   }
 
   return (
@@ -47,20 +38,7 @@ function ConnectInner() {
         >
           Connect SP-API (optional)
         </button>
-
-        <div className="text-xs text-slate-500 pt-2">
-          After connecting, go to the Dashboard to <b>Activate Pro</b> and enter
-          your Primary ASIN + Breakeven ACOS.
-        </div>
       </div>
     </div>
-  );
-}
-
-export default function ConnectPage() {
-  return (
-    <Suspense fallback={<div className="p-6">Loading…</div>}>
-      <ConnectInner />
-    </Suspense>
   );
 }
