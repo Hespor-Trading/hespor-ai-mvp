@@ -82,10 +82,8 @@ async function exchangeCodeForTokens(code: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const now = Date.now();
   const u = new URL(req.url);
   const brand = u.searchParams.get("state") || "default";
-
   try {
     const code = u.searchParams.get("code");
     if (!code) {
@@ -94,11 +92,12 @@ export async function GET(req: NextRequest) {
     }
 
     const tokens = await exchangeCodeForTokens(code);
-
+    const now = Date.now();
     const secretName = `amazon-ads/credentials/${brand}`;
     await upsertSecret(secretName, JSON.stringify({ ...tokens, obtained_at: now }));
 
-    console.log("✅ Callback complete → redirect /dashboard");
+    // TODO: trigger provisioner here if you want (same as before)
+
     const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, u.origin));
     res.cookies.set({
       name: "ads_connected",
@@ -112,9 +111,6 @@ export async function GET(req: NextRequest) {
   } catch (err: any) {
     const msg = err?.message || String(err);
     console.error("❌ ADS CALLBACK ERROR:", msg);
-    // Bubble the reason back to the UI for you to see
-    return NextResponse.redirect(
-      new URL(`/connect?error=${encodeURIComponent(msg)}`, u.origin)
-    );
+    return NextResponse.redirect(new URL(`/connect?error=${encodeURIComponent(msg)}`, u.origin));
   }
 }
