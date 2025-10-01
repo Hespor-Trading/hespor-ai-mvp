@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ function Inner() {
   const search = useSearchParams();
   const supabase = createClientComponentClient();
 
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,14 +42,13 @@ function Inner() {
     }
   }, [search]);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
     setErr(null);
 
     try {
-      // Basic validation before network call
       if (!email || !password) {
         setErr("unknown");
         toast.error("Please enter email and password.");
@@ -67,7 +67,10 @@ function Inner() {
         return;
       }
 
-      // ✅ Password login → go directly to /connect (no callback race)
+      // Ensure the session cookie is written before navigation
+      await supabase.auth.getSession();
+
+      // ✅ Password login → go directly to /connect (avoid callback race)
       router.replace("/connect");
       toast.success("Signed in.");
     } catch (e) {
@@ -79,10 +82,11 @@ function Inner() {
     }
   }
 
-  // Extra safety: also trigger submit if user clicks the button directly
-  const onClickSubmit = () => {
-    // This is just a fallback for some edge browsers; form submit remains primary
-  };
+  // Fallback click handler – in case the browser swallows submit for any reason
+  function handleClickSubmit() {
+    if (loading) return;
+    formRef.current?.requestSubmit();
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-emerald-600 flex items-center justify-center p-6">
@@ -99,7 +103,7 @@ function Inner() {
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="space-y-4" noValidate>
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input
@@ -129,8 +133,9 @@ function Inner() {
 
           <button
             type="submit"
-            onClick={onClickSubmit}
+            onClick={handleClickSubmit}
             disabled={loading}
+            aria-disabled={loading}
             className="w-full rounded-lg bg-emerald-600 text-white py-2 font-semibold hover:bg-emerald-700 disabled:opacity-60"
           >
             {loading ? "Signing in..." : "Sign in"}
