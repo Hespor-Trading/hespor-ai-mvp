@@ -2,20 +2,31 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Central auth gate.
- * - Public: "/", "/auth/*", Ads auth endpoints, static assets
- * - Private: "/connect", "/dashboard", and everything else not listed in `publicPaths`
- *
- * Logic:
- * - If NO Supabase session cookie -> redirect to /auth/sign-in (except public paths)
- * - If logged in -> allow
+ * Auth middleware
+ * - Public: "/", "/auth/*", "/terms", "/privacy", Ads auth endpoints, and ANY static asset (e.g. .png, .svg, .css, .js)
+ * - Private: everything else (e.g. /connect, /dashboard)
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Public routes that should NOT require auth
+  // 1) Always let static assets pass (logo, images, css, js, fonts, etc.)
+  //    Example: "/hespor-logo.png" must not be intercepted.
+  const isStaticAsset = /\.[a-z0-9]+$/i.test(pathname);
+  if (
+    isStaticAsset ||
+    pathname.startsWith("/_next/") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml"
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2) Public routes that never require auth
   const publicPaths = new Set<string>([
     "/",
+    "/terms",
+    "/privacy",
     "/auth/sign-in",
     "/auth/sign-up",
     "/auth/verify/pending",
@@ -24,26 +35,24 @@ export function middleware(req: NextRequest) {
     "/api/ads/callback",
   ]);
 
-  // Allow all /auth/* and /api/ads/* subpaths
   const isAuthPath = pathname === "/auth" || pathname.startsWith("/auth/");
   const isAdsAuthApi =
     pathname.startsWith("/api/ads/start") ||
     pathname.startsWith("/api/ads/callback");
 
-  const isExplicitPublic = publicPaths.has(pathname) || isAuthPath || isAdsAuthApi;
+  const isExplicitPublic =
+    publicPaths.has(pathname) || isAuthPath || isAdsAuthApi;
 
-  // Detect Supabase session (support both modern and legacy cookie names)
-  // @supabase/ssr sets: sb-access-token / sb-refresh-token
-  // Legacy Auth Helpers may set: supabase-auth-token (JSON array string)
+  // 3) Detect Supabase session cookie
   const hasSession =
     Boolean(req.cookies.get("sb-access-token")?.value) ||
     Boolean(req.cookies.get("supabase-auth-token")?.value);
 
-  // If not logged in and trying to access a private path -> redirect to /auth/sign-in
+  // 4) If the path is private and user is not logged in -> send to sign-in
   if (!isExplicitPublic && !hasSession) {
     const url = req.nextUrl.clone();
     url.pathname = "/auth/sign-in";
-    url.searchParams.set("redirectedFrom", pathname); // optional breadcrumb
+    url.searchParams.set("redirectedFrom", pathname);
     return NextResponse.redirect(url);
   }
 
@@ -51,6 +60,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Exclude Next.js internals and favicon from middleware
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
+  // Apply to all routes except Next internals; static assets are handled above.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
