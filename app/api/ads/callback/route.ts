@@ -96,9 +96,8 @@ export async function GET(req: NextRequest) {
     const secretName = `amazon-ads/credentials/${brand}`;
     await upsertSecret(secretName, JSON.stringify({ ...tokens, obtained_at: now }));
 
-    // TODO: trigger provisioner here if you want (same as before)
-
-    const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, u.origin));
+    // ✅ Go back to connect first (pipeline flow)
+    const res = NextResponse.redirect(new URL(`/connect?brand=${brand}`, u.origin));
     res.cookies.set({
       name: "ads_connected",
       value: "1",
