@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Summary = {
@@ -49,41 +49,24 @@ function KpiCard({ label, value, hint }: { label: string; value: string; hint?: 
   );
 }
 
-function useFreeLimit() {
-  // 10 questions / week (client-side; server enforcement in next step)
-  const WEEK = 7 * 24 * 60 * 60 * 1000;
+function useFreeBadge() {
   const key = "hespor_chat_week";
-  const now = Date.now();
-  const [used, setUsed] = useState(0);
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     const raw = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
-    if (!raw) return;
+    if (!raw) return setRemaining(10);
     try {
       const { start, used } = JSON.parse(raw);
-      if (now - start < WEEK) setUsed(used || 0);
-      else window.localStorage.removeItem(key);
-    } catch {}
-  }, [now]);
-
-  function bump() {
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
-    let obj = { start: now, used: 0 };
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        obj = { start: parsed.start, used: parsed.used };
-        if (now - parsed.start >= WEEK) obj = { start: now, used: 0 };
-      } catch {}
+      const week = 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() - start >= week) setRemaining(10);
+      else setRemaining(Math.max(0, 10 - (used || 0)));
+    } catch {
+      setRemaining(10);
     }
-    obj.used += 1;
-    window.localStorage.setItem(key, JSON.stringify(obj));
-    setUsed(obj.used);
-  }
+  }, []);
 
-  const remaining = Math.max(0, 10 - used);
-  const locked = remaining <= 0;
-  return { remaining, locked, bump };
+  return remaining;
 }
 
 function Chatbot() {
@@ -91,22 +74,29 @@ function Chatbot() {
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
     { role: "assistant", text: "Hi! Ask me about ACOS, spend, and your top keywords." },
   ]);
+  const [limitBanner, setLimitBanner] = useState<string | null>(null);
   const brand = useBrand();
-  const { remaining, locked, bump } = useFreeLimit();
+  const remaining = useFreeBadge();
 
   async function send() {
-    if (!input.trim() || locked) return;
+    if (!input.trim()) return;
     const q = input.trim();
     setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
-    bump();
 
     const res = await fetch("/api/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brand, query: q }),
     });
+
     const data = await res.json();
+    if (res.status === 429) {
+      setLimitBanner(data?.answer || "Free plan limit reached.");
+      setMessages((m) => [...m, { role: "assistant", text: data?.answer || "" }]);
+      return;
+    }
+
     setMessages((m) => [...m, { role: "assistant", text: data.answer || "No answer." }]);
   }
 
@@ -114,12 +104,18 @@ function Chatbot() {
     <div className="rounded-2xl border h-[70vh] flex flex-col overflow-hidden bg-white shadow-sm">
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b">
         <div className="text-xs text-slate-600">
-          Free plan: <b>{remaining}</b> questions left this week
+          {remaining != null ? <>Free plan: <b>{remaining}</b> questions left (client)</> : "Free plan"}
         </div>
         <a href="/subscription" className="text-xs px-2 py-1 rounded-md bg-emerald-500 text-black">
           Upgrade to Pro
         </a>
       </div>
+
+      {limitBanner && (
+        <div className="px-4 py-2 text-xs text-red-700 bg-red-50 border-b">
+          {limitBanner}
+        </div>
+      )}
 
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         {messages.map((m, i) => (
@@ -141,14 +137,9 @@ function Chatbot() {
           className="flex-1 rounded-lg border px-3 py-2"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={locked ? "Limit reached — upgrade to Pro" : "e.g., Show ACOS trend last 30 days"}
-          disabled={locked}
+          placeholder="e.g., Show ACOS trend last 30 days"
         />
-        <button
-          onClick={send}
-          disabled={locked}
-          className="rounded-lg bg-emerald-500 text-black px-4 py-2 disabled:opacity-50"
-        >
+        <button onClick={send} className="rounded-lg bg-emerald-500 text-black px-4 py-2">
           Send
         </button>
       </div>
