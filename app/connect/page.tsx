@@ -1,42 +1,125 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function ConnectPage() {
   const router = useRouter();
+  const params = useSearchParams();
+  const [asin, setAsin] = useState("");
+  const [acos, setAcos] = useState("25"); // %
+  const [saving, setSaving] = useState(false);
+  const [brand, setBrand] = useState("default");
 
-  async function track(action: string) {
-    try {
+  useEffect(() => {
+    const b = params.get("brand");
+    if (b) setBrand(b);
+  }, [params]);
+
+  async function saveBasics() {
+    setSaving(true);
+    const supabase = supabaseBrowser();
+    const {
+      data: { user },
+      error: uErr,
+    } = await supabase.auth.getUser();
+    if (uErr || !user) {
+      setSaving(false);
+      router.push("/auth/sign-in");
+      return;
+    }
+
+    // Save to brand_rules (present in your DB)
+    const { error } = await supabase
+      .from("brand_rules")
+      .upsert(
+        {
+          user_id: user.id,
+          brand,
+          primary_asin: asin.trim(),
+          breakeven_acos: Number(acos),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,brand" }
+      );
+
+    setSaving(false);
+    if (error) {
+      alert("Could not save settings: " + error.message);
+    } else {
+      // Optional: record an event
       await fetch("/api/events/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-    } catch {
-      // ignore tracking errors in UI
+        body: JSON.stringify({ action: "connect_save_basics", brand }),
+      }).catch(() => {});
+      alert("Saved.");
     }
   }
 
-  async function onAds() {
-    await track("connect_ads");
-    router.push("/api/ads/authorize"); // server builds the URL from env
+  function onAds() {
+    const url = new URL("/api/ads/start", window.location.origin);
+    url.searchParams.set("brand", brand);
+    window.location.href = url.toString();
   }
 
-  async function onSpapi() {
-    await track("connect_spapi");
-    alert("SP-API connect is coming soon.");
+  function onSpapi() {
+    const url = new URL("/api/sp/start", window.location.origin);
+    url.searchParams.set("brand", brand);
+    window.location.href = url.toString();
   }
 
   return (
-    <div className="min-h-screen bg-emerald-600 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8 space-y-6 text-center">
-        <h1 className="text-xl font-semibold">Connect Your Accounts</h1>
+    <div className="max-w-xl mx-auto p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <img src="/hespor-logo.png" className="h-10" alt="Hespor" />
+        <h1 className="text-2xl font-semibold">Connect your account</h1>
+      </div>
 
+      <div className="space-y-4 rounded-2xl p-5 bg-emerald-50 text-slate-900">
+        <label className="block">
+          <span className="text-sm font-medium">Primary ASIN</span>
+          <input
+            value={asin}
+            onChange={(e) => setAsin(e.target.value)}
+            placeholder="e.g., B0CXXXXXXX"
+            className="mt-1 w-full rounded-lg border px-3 py-2"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium">
+            Breakeven ACOS (%){" "}
+            <span title="Your profit margin inverted. If product margin is 25%, breakeven ACOS is ~25%">
+              ⓘ
+            </span>
+          </span>
+          <input
+            value={acos}
+            onChange={(e) => setAcos(e.target.value)}
+            type="number"
+            min={1}
+            max={95}
+            className="mt-1 w-full rounded-lg border px-3 py-2"
+          />
+        </label>
+
+        <button
+          onClick={saveBasics}
+          disabled={saving}
+          className="w-full rounded-lg bg-emerald-500 text-black py-3 hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
+
+      <div className="mt-8 space-y-3">
         <button
           onClick={onAds}
           className="w-full rounded-lg bg-black text-white py-3 hover:opacity-90"
         >
-          Connect Amazon Ads API
+          Connect Amazon Ads
         </button>
 
         <button
