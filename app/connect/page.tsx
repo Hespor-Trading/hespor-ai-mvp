@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase";
 
-export default function ConnectPage() {
+// prevent static prerender of this page (uses client-only hooks)
+export const dynamic = "force-dynamic";
+
+function ConnectInner() {
   const router = useRouter();
   const params = useSearchParams();
+
   const [asin, setAsin] = useState("");
   const [acos, setAcos] = useState("25"); // %
   const [saving, setSaving] = useState(false);
@@ -20,10 +24,12 @@ export default function ConnectPage() {
   async function saveBasics() {
     setSaving(true);
     const supabase = supabaseBrowser();
+
     const {
       data: { user },
       error: uErr,
     } = await supabase.auth.getUser();
+
     if (uErr || !user) {
       setSaving(false);
       router.push("/auth/sign-in");
@@ -45,15 +51,17 @@ export default function ConnectPage() {
       );
 
     setSaving(false);
+
     if (error) {
       alert("Could not save settings: " + error.message);
     } else {
-      // Optional: record an event
-      await fetch("/api/events/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "connect_save_basics", brand }),
-      }).catch(() => {});
+      try {
+        await fetch("/api/events/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "connect_save_basics", brand }),
+        });
+      } catch {}
       alert("Saved.");
     }
   }
@@ -119,7 +127,7 @@ export default function ConnectPage() {
           onClick={onAds}
           className="w-full rounded-lg bg-black text-white py-3 hover:opacity-90"
         >
-          Connect Amazon Ads
+          Connect Amazon Ads (required)
         </button>
 
         <button
@@ -130,5 +138,14 @@ export default function ConnectPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ConnectPage() {
+  // ✅ useSearchParams is used inside ConnectInner which is wrapped by Suspense
+  return (
+    <Suspense fallback={<div className="p-6">Loading…</div>}>
+      <ConnectInner />
+    </Suspense>
   );
 }
