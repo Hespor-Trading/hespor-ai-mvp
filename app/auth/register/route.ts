@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     }
     const { email, password, first_name, last_name, business_name, brand_name } = parsed.data;
 
+    // Create the user. With "confirm email" OFF in Supabase, this auto-confirms (no email).
     const publicClient = createClient(SUPABASE_URL, ANON);
     const { data, error } = await publicClient.auth.signUp({
       email,
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
           accepted_legal: true,
           accepted_legal_at: new Date().toISOString(),
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/sign-in?verified=1`,
+        // No emailRedirectTo needed for auto-confirm flow
       },
     });
 
@@ -66,9 +67,11 @@ export async function POST(req: Request) {
 
       if (upsertErr) {
         console.warn("profiles upsert error:", upsertErr);
+        // Not fatal; continue.
       }
     }
 
+    // Client already shows "Account created. Please sign in."
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("register error", e);
