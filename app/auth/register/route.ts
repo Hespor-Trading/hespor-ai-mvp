@@ -18,6 +18,7 @@ const schema = z.object({
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL!; // e.g. https://app.hespor.com
 
 export async function POST(req: Request) {
   try {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     }
     const { email, password, first_name, last_name, business_name, brand_name } = parsed.data;
 
-    // Create the user. With "confirm email" OFF in Supabase, this auto-confirms (no email).
+    // With "Confirm email" enabled in Supabase, this sends a verification email.
     const publicClient = createClient(SUPABASE_URL, ANON);
     const { data, error } = await publicClient.auth.signUp({
       email,
@@ -43,12 +44,13 @@ export async function POST(req: Request) {
           accepted_legal: true,
           accepted_legal_at: new Date().toISOString(),
         },
-        // No emailRedirectTo needed for auto-confirm flow
+        emailRedirectTo: `${APP_URL}/auth/sign-in?verified=1`,
       },
     });
 
     if (error) return new NextResponse(error.message, { status: 400 });
 
+    // Optional: pre-create profile row using service role (RLS-safe)
     const userId = data.user?.id;
     if (userId) {
       const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE);
@@ -64,15 +66,13 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
-
       if (upsertErr) {
         console.warn("profiles upsert error:", upsertErr);
-        // Not fatal; continue.
       }
     }
 
-    // Client already shows "Account created. Please sign in."
-    return NextResponse.json({ ok: true });
+    // Tell client we initiated email confirmation
+    return NextResponse.json({ ok: true, message: "confirmation_sent" });
   } catch (e: any) {
     console.error("register error", e);
     return new NextResponse("Server error", { status: 500 });
