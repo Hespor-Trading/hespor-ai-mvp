@@ -1,23 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
  * After Supabase completes OAuth/email link, we land here.
- * If a session exists -> push to /connect
- * If not -> back to /auth/sign-in
- *
- * We don’t read Supabase directly here; the middleware already enforces.
- * We simply push to the intended destination, and the middleware will allow/deny.
+ * If session exists -> push to /connect
+ * If not -> /auth/sign-in
  */
-export default function Page() {
+function CallbackInner() {
   const router = useRouter();
   const search = useSearchParams();
 
   useEffect(() => {
-    // If we arrived here via email verification or OAuth completion,
-    // head to /connect. If not logged in, middleware will send to /auth/sign-in.
     const next = search.get("next");
     router.replace(next || "/connect");
   }, [router, search]);
@@ -29,5 +24,19 @@ export default function Page() {
         <p className="text-gray-700">One moment while we complete your login.</p>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <p className="text-gray-700">Loading…</p>
+        </div>
+      }
+    >
+      <CallbackInner />
+    </Suspense>
   );
 }
