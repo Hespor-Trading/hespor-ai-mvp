@@ -12,14 +12,27 @@ export const dynamic = "force-dynamic";
 const REGION = process.env.AWS_REGION || "ca-central-1";
 const sm = new SecretsManagerClient({ region: REGION });
 
-function getBrand(u: URL) {
-  return u.searchParams.get("state") || "default";
+async function upsertSecret(name: string, value: string) {
+  try {
+    await sm.send(new GetSecretValueCommand({ SecretId: name }));
+    await sm.send(new PutSecretValueCommand({ SecretId: name, SecretString: value }));
+  } catch {
+    await sm.send(new CreateSecretCommand({ Name: name, SecretString: value }));
+  }
+}
+
+function readRedirect(): string {
+  return (
+    process.env.AMZN_ADS_REDIRECT ||
+    process.env.ADS_REDIRECT_URI ||
+    `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/api/ads/callback`
+  );
 }
 
 async function exchangeCodeForTokens(code: string) {
   const clientId = process.env.ADS_LWA_CLIENT_ID!;
   const clientSecret = process.env.ADS_LWA_CLIENT_SECRET!;
-  const redirect = process.env.AMZN_ADS_REDIRECT!;
+  const redirect = readRedirect();
 
   const form = new URLSearchParams();
   form.set("grant_type", "authorization_code");
@@ -46,34 +59,22 @@ async function exchangeCodeForTokens(code: string) {
   }>;
 }
 
-async function upsertSecret(name: string, value: string) {
-  // Try read – if exists, put new version; else create
-  try {
-    await sm.send(new GetSecretValueCommand({ SecretId: name }));
-    await sm.send(new PutSecretValueCommand({ SecretId: name, SecretString: value }));
-  } catch {
-    await sm.send(new CreateSecretCommand({ Name: name, SecretString: value }));
-  }
-}
-
 export async function GET(req: NextRequest) {
+  const now = Date.now();
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    const brand = getBrand(url);
-
-    if (!code) {
-      throw new Error("Missing code");
-    }
+    const u = new URL(req.url);
+    const brand = u.searchParams.get("state") || "default";
+    const code = u.searchParams.get("code");
+    if (!code) throw new Error("Missing authorization code");
 
     const tokens = await exchangeCodeForTokens(code);
+    await upsertSecret(
+      `amazon-ads/credentials/${brand}`,
+      JSON.stringify({ ...tokens, obtained_at: now })
+    );
 
-    // Save per-brand in Secrets Manager
-    const secretName = `amazon-ads/credentials/${brand}`;
-    await upsertSecret(secretName, JSON.stringify(tokens));
-
-    const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, url.origin));
-    // Drop a small signal cookie for the UI
+    // ⬇️ After consent, go straight to Dashboard
+    const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, u.origin));
     res.cookies.set({
       name: "ads_connected",
       value: "1",
@@ -84,12 +85,12 @@ export async function GET(req: NextRequest) {
     });
     return res;
   } catch (err: any) {
-    const url = new URL(req.url);
-    const brand = getBrand(url);
+    const u = new URL(req.url);
+    const brand = u.searchParams.get("state") || "default";
     return NextResponse.redirect(
       new URL(
-        `/connect?error=${encodeURIComponent(err?.message || "ads_callback_error")}&brand=${brand}`,
-        url.origin
+        `/connect?brand=${brand}&error=${encodeURIComponent(err?.message || "ads_callback_error")}`,
+        u.origin
       )
     );
   }
