@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Summary = {
@@ -20,12 +20,20 @@ function useBrand() {
 function TopBar() {
   return (
     <div className="flex items-center gap-3">
-      <img src="/hespor-logo.png" className="h-8" alt="Hespor" />
-      <div className="ml-auto flex gap-4 text-sm">
-        <a href="/profile" className="hover:underline">Edit Profile</a>
-        <a href="/billing" className="hover:underline">Billing</a>
-        <a href="/subscription" className="hover:underline">Subscription</a>
-        <a href="/auth/sign-out" className="hover:underline">Sign Out</a>
+      <img src="/hespor-logo.png" className="h-7" alt="Hespor" />
+      <div className="ml-auto flex gap-2 text-sm">
+        <a href="/profile" className="px-3 py-2 rounded-lg border bg-white hover:bg-emerald-50">
+          Edit Profile
+        </a>
+        <a href="/billing" className="px-3 py-2 rounded-lg border bg-white hover:bg-emerald-50">
+          Billing
+        </a>
+        <a href="/subscription" className="px-3 py-2 rounded-lg border bg-white hover:bg-emerald-50">
+          Subscription
+        </a>
+        <a href="/auth/sign-out" className="px-3 py-2 rounded-lg border bg-white hover:bg-emerald-50">
+          Sign Out
+        </a>
       </div>
     </div>
   );
@@ -33,12 +41,49 @@ function TopBar() {
 
 function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border p-4 bg-white">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+    <div className="rounded-2xl border p-5 bg-white shadow-sm">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="text-2xl font-semibold mt-1">{value}</div>
       {hint && <div className="text-xs text-slate-400 mt-1">{hint}</div>}
     </div>
   );
+}
+
+function useFreeLimit() {
+  // 10 questions / week (client-side; server enforcement in next step)
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  const key = "hespor_chat_week";
+  const now = Date.now();
+  const [used, setUsed] = useState(0);
+
+  useEffect(() => {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+    if (!raw) return;
+    try {
+      const { start, used } = JSON.parse(raw);
+      if (now - start < WEEK) setUsed(used || 0);
+      else window.localStorage.removeItem(key);
+    } catch {}
+  }, [now]);
+
+  function bump() {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+    let obj = { start: now, used: 0 };
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        obj = { start: parsed.start, used: parsed.used };
+        if (now - parsed.start >= WEEK) obj = { start: now, used: 0 };
+      } catch {}
+    }
+    obj.used += 1;
+    window.localStorage.setItem(key, JSON.stringify(obj));
+    setUsed(obj.used);
+  }
+
+  const remaining = Math.max(0, 10 - used);
+  const locked = remaining <= 0;
+  return { remaining, locked, bump };
 }
 
 function Chatbot() {
@@ -47,12 +92,15 @@ function Chatbot() {
     { role: "assistant", text: "Hi! Ask me about ACOS, spend, and your top keywords." },
   ]);
   const brand = useBrand();
+  const { remaining, locked, bump } = useFreeLimit();
 
   async function send() {
-    if (!input.trim()) return;
+    if (!input.trim() || locked) return;
     const q = input.trim();
     setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
+    bump();
+
     const res = await fetch("/api/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -63,7 +111,16 @@ function Chatbot() {
   }
 
   return (
-    <div className="rounded-2xl border h-[70vh] flex flex-col overflow-hidden bg-white">
+    <div className="rounded-2xl border h-[70vh] flex flex-col overflow-hidden bg-white shadow-sm">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b">
+        <div className="text-xs text-slate-600">
+          Free plan: <b>{remaining}</b> questions left this week
+        </div>
+        <a href="/subscription" className="text-xs px-2 py-1 rounded-md bg-emerald-500 text-black">
+          Upgrade to Pro
+        </a>
+      </div>
+
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
@@ -78,14 +135,20 @@ function Chatbot() {
           </div>
         ))}
       </div>
+
       <div className="p-3 border-t flex gap-2">
         <input
           className="flex-1 rounded-lg border px-3 py-2"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g., Show ACOS trend last 30 days"
+          placeholder={locked ? "Limit reached — upgrade to Pro" : "e.g., Show ACOS trend last 30 days"}
+          disabled={locked}
         />
-        <button onClick={send} className="rounded-lg bg-emerald-500 text-black px-4 py-2">
+        <button
+          onClick={send}
+          disabled={locked}
+          className="rounded-lg bg-emerald-500 text-black px-4 py-2 disabled:opacity-50"
+        >
           Send
         </button>
       </div>
@@ -96,19 +159,21 @@ function Chatbot() {
 function LeftColumn() {
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border p-5 bg-white">
+      <div className="rounded-2xl border p-5 bg-white shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-slate-500">Plan</div>
             <div className="font-medium">free</div>
           </div>
-          <a href="/pricing" className="rounded-lg bg-emerald-500 text-black px-4 py-2">Activate Pro</a>
+          <a href="/subscription" className="rounded-lg bg-emerald-500 text-black px-4 py-2">
+            Activate Pro
+          </a>
         </div>
       </div>
 
-      <div className="rounded-2xl border p-5 bg-white opacity-50 blur-[1px]">
+      <div className="rounded-2xl border p-5 bg-white opacity-60">
         <div className="font-medium mb-2">Applied Items</div>
-        <div className="text-sm text-slate-600">Latest actions the engine took…</div>
+        <div className="text-sm text-slate-600">Engine actions will appear here (Pro).</div>
       </div>
 
       <div className="rounded-2xl border p-5 bg-white">
@@ -171,9 +236,7 @@ function DashboardBody() {
 export default function DashboardClient() {
   return (
     <Suspense>
-      <div className="bg-emerald-50 min-h-[100vh]">
-        <DashboardBody />
-      </div>
+      <DashboardBody />
     </Suspense>
   );
 }
