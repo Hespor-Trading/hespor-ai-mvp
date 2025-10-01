@@ -25,6 +25,7 @@ function Inner() {
   const router = useRouter();
   const search = useSearchParams();
   const supabase = createClientComponentClient();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,9 @@ function Inner() {
         else setErr("unknown");
         return;
       }
-      router.replace("/auth/callback");
+
+      // ✅ Password sign-in → go straight to /connect (avoid callback race)
+      router.replace("/connect");
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,6 @@ function Inner() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          {/* ✅ ensure logo always renders */}
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority unoptimized />
           <h1 className="text-xl font-semibold">Sign in to Hespor</h1>
         </div>
@@ -126,7 +128,6 @@ function Inner() {
 }
 
 export default function SignInClient() {
-  // Keep Next happy when using useSearchParams in descendants
   return (
     <Suspense>
       <Inner />
