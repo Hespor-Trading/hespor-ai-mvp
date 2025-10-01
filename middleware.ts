@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Protects app routes, but lets users into /dashboard if Ads just connected
+/**
+ * Central auth gate.
+ * - Public: "/", "/auth/*", Ads auth endpoints, static assets
+ * - Private: "/connect", "/dashboard", and everything else not listed in `publicPaths`
+ *
+ * Logic:
+ * - If NO Supabase session cookie -> redirect to /auth/sign-in (except public paths)
+ * - If logged in -> allow
+ */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Public paths
-  const publicPaths = [
+  // Public routes that should NOT require auth
+  const publicPaths = new Set<string>([
     "/",
     "/auth/sign-in",
     "/auth/sign-up",
@@ -14,39 +22,35 @@ export function middleware(req: NextRequest) {
     "/auth/callback",
     "/api/ads/start",
     "/api/ads/callback",
-    "/api/ads/status",
-    "/api/auth/resend",
-    "/api/stripe/checkout",
-  ];
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
+  ]);
 
-  // If we just connected Ads, callback set this cookie:
-  const adsConnected = req.cookies.get("ads_connected")?.value === "1";
+  // Allow all /auth/* and /api/ads/* subpaths
+  const isAuthPath = pathname === "/auth" || pathname.startsWith("/auth/");
+  const isAdsAuthApi =
+    pathname.startsWith("/api/ads/start") ||
+    pathname.startsWith("/api/ads/callback");
 
-  // If user tries to access /dashboard and we have the recent connection cookie,
-  // do NOT bounce them back to /connect.
-  if (pathname.startsWith("/dashboard") && adsConnected) {
-    return NextResponse.next();
-  }
+  const isExplicitPublic = publicPaths.has(pathname) || isAuthPath || isAdsAuthApi;
 
-  // Basic auth presence check (Supabase sets sb-access-token cookie when signed in)
-  // If you use a different auth, adjust this.
+  // Detect Supabase session (support both modern and legacy cookie names)
+  // @supabase/ssr sets: sb-access-token / sb-refresh-token
+  // Legacy Auth Helpers may set: supabase-auth-token (JSON array string)
   const hasSession =
-    !!req.cookies.get("sb-access-token") || !!req.cookies.get("sb:token");
+    Boolean(req.cookies.get("sb-access-token")?.value) ||
+    Boolean(req.cookies.get("supabase-auth-token")?.value);
 
-  if (!hasSession && !pathname.startsWith("/auth")) {
+  // If not logged in and trying to access a private path -> redirect to /auth/sign-in
+  if (!isExplicitPublic && !hasSession) {
     const url = req.nextUrl.clone();
     url.pathname = "/auth/sign-in";
+    url.searchParams.set("redirectedFrom", pathname); // optional breadcrumb
     return NextResponse.redirect(url);
   }
 
-  // Optional: if you still want to force Connect before Dashboard:
-  // we now base "connected" on a lightweight status API instead of guessing here.
   return NextResponse.next();
 }
 
 export const config = {
+  // Exclude Next.js internals and favicon from middleware
   matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
 };
