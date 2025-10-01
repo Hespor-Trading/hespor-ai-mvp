@@ -26,33 +26,30 @@ export default function LegalModal({ open, onClose }: Props) {
       {/* click outside to close */}
       <button
         className="absolute inset-0"
-        aria-label="Close"
+        aria-label="Close legal modal"
         onClick={onClose}
       />
-
-      <div className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-3">
-          <h2 className="text-sm font-semibold">
-            Terms &amp; Conditions · Privacy Policy
-          </h2>
+      <div className="relative z-10 bg-white rounded-xl shadow-xl w-full max-w-5xl">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold">Legal</h2>
           <button
-            className="text-sm underline hover:opacity-70"
+            className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
             onClick={onClose}
           >
             Close
           </button>
         </div>
 
-        {/* Split view; each pane scrolls independently */}
-        <div className="grid grid-cols-1 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+          {/* ✅ point to your real pages */}
           <iframe
             title="Terms & Conditions"
-            src="/legal/terms"
+            src="/terms"
             className="h-[70vh] w-full border-r md:block"
           />
           <iframe
             title="Privacy Policy"
-            src="/legal/privacy"
+            src="/privacy"
             className="h-[70vh] w-full"
           />
         </div>
