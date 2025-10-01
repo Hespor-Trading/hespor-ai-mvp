@@ -1,13 +1,31 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { useMemo } from "react";
+
 export const dynamic = "force-dynamic";
 
 export default function ConnectPage() {
+  const params = useSearchParams();
+  const error = params.get("error");
+
+  const humanError = useMemo(() => {
+    if (!error) return null;
+    if (error.includes("LWA token exchange failed")) {
+      return "Amazon Login token exchange failed. Most often this is a Client ID/Secret mismatch or redirect URL mismatch.";
+    }
+    if (error.includes("AccessDenied") || error.includes("SecretsManager")) {
+      return "AWS Secrets Manager permission denied. The IAM user for your AWS keys needs SecretsManager Create/Put/Get permissions.";
+    }
+    if (error.includes("missing_authorization_code")) {
+      return "Amazon did not return an authorization code.";
+    }
+    return error;
+  }, [error]);
+
   function onAds() {
-    // Minimal: just hit the server route (no params, no Suspense)
     window.location.href = "/api/ads/start";
   }
-
   function onSpapi() {
     window.location.href = "/api/sp/start";
   }
@@ -18,6 +36,12 @@ export default function ConnectPage() {
         <img src="/hespor-logo.png" className="h-10" alt="Hespor" />
         <h1 className="text-2xl font-semibold">Connect your account</h1>
       </div>
+
+      {!!humanError && (
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+          <b>Connection error:</b> {humanError}
+        </div>
+      )}
 
       <div className="rounded-2xl border p-6 space-y-3">
         <p className="text-sm text-slate-600">
