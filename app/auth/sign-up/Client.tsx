@@ -52,7 +52,6 @@ export default function SignUpClient() {
 
     setSubmitting(true);
     try {
-      // FIX: App Router routes live at /auth/register (not /api/auth/register)
       const res = await fetch("/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +65,7 @@ export default function SignUpClient() {
         return;
       }
 
-      toast.success("Account created. Please sign in.");
+      toast.success("Check your email to confirm your account.");
       router.push("/auth/sign-in?created=1");
     } catch {
       toast.error("Network error");
