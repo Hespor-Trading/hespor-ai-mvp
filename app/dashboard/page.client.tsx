@@ -1,34 +1,69 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-type Rule = {
-  brand: string;
-  primary_asin: string | null;
-  breakeven_acos: number | null;
+type Summary = {
+  spend: number;
+  sales: number;
+  acos: number | null;
+  orders: number;
+  ctr: number | null;
+  period: string;
 };
 
+function useBrand() {
+  const sp = useSearchParams();
+  return sp.get("brand") || "default";
+}
+
+function TopBar() {
+  return (
+    <div className="flex items-center gap-3">
+      <img src="/hespor-logo.png" className="h-8" alt="Hespor" />
+      <div className="ml-auto flex gap-4 text-sm">
+        <a href="/profile" className="hover:underline">Edit Profile</a>
+        <a href="/billing" className="hover:underline">Billing</a>
+        <a href="/subscription" className="hover:underline">Subscription</a>
+        <a href="/auth/sign-out" className="hover:underline">Sign Out</a>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-2xl border p-4 bg-white">
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-2xl font-semibold mt-1">{value}</div>
+      {hint && <div className="text-xs text-slate-400 mt-1">{hint}</div>}
+    </div>
+  );
+}
+
 function Chatbot() {
-  // placeholder UI – wire to your /api/ai later
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
     { role: "assistant", text: "Hi! Ask me about ACOS, spend, and your top keywords." },
   ]);
+  const brand = useBrand();
 
   async function send() {
     if (!input.trim()) return;
     const q = input.trim();
     setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
-    // TODO: call /api/ai
-    setTimeout(() => {
-      setMessages((m) => [...m, { role: "assistant", text: "Working on that… (stub)" }]);
-    }, 300);
+    const res = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brand, query: q }),
+    });
+    const data = await res.json();
+    setMessages((m) => [...m, { role: "assistant", text: data.answer || "No answer." }]);
   }
 
   return (
-    <div className="rounded-2xl border h-[70vh] flex flex-col overflow-hidden">
+    <div className="rounded-2xl border h-[70vh] flex flex-col overflow-hidden bg-white">
       <div className="flex-1 p-4 space-y-3 overflow-auto">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
@@ -54,190 +89,77 @@ function Chatbot() {
           Send
         </button>
       </div>
-      <div className="p-3 text-sm text-slate-500">
-        Try:
-        <div className="flex gap-2 mt-2 flex-wrap">
-          {[
-            "Top keywords last 7d",
-            "Active campaigns with ACOS",
-            "Spend and sales 30d",
-            "Any negatives to add?",
-          ].map((s) => (
-            <button
-              key={s}
-              className="text-xs rounded-full border px-3 py-1 hover:bg-emerald-50"
-              onClick={() => {
-                const evt = { target: { value: s } } as any;
-                // quick-fill
-                (document.querySelector("input[placeholder^='e.g., Show ACOS']") as HTMLInputElement).value =
-                  s;
-                setInput(s);
-              }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
 
-function Menu() {
-  return (
-    <div className="flex items-center gap-3">
-      <img src="/hespor-logo.png" className="h-8" alt="Hespor" />
-      <div className="ml-auto flex gap-3 text-sm">
-        <Link href="/profile" className="hover:underline">
-          Edit Profile
-        </Link>
-        <Link href="/billing" className="hover:underline">
-          Billing
-        </Link>
-        <Link href="/subscription" className="hover:underline">
-          Subscription
-        </Link>
-        <Link href="/auth/sign-out" className="hover:underline">
-          Sign Out
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function LeftCards({ plan, rules }: { plan: "free" | "pro"; rules: Rule | null }) {
-  const [showActivate, setShowActivate] = useState(false);
-  const [asin, setAsin] = useState("");
-  const [acos, setAcos] = useState("25");
-
-  async function activatePro() {
-    // Save ASIN/ACOS then Stripe – you already have /api/stripe/checkout
-    // For brevity, only open checkout here:
-    const res = await fetch("/api/stripe/checkout", { method: "POST" });
-    const data = await res.json();
-    if (data?.url) window.location.href = data.url;
-  }
-
+function LeftColumn() {
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border p-5">
+      <div className="rounded-2xl border p-5 bg-white">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-slate-500">Plan</div>
-            <div className="font-medium">{plan}</div>
+            <div className="font-medium">free</div>
           </div>
-          {plan === "free" ? (
-            <button
-              onClick={() => setShowActivate(true)}
-              className="rounded-lg bg-emerald-500 text-black px-4 py-2"
-            >
-              Activate Pro
-            </button>
-          ) : (
-            <span className="rounded-full bg-emerald-100 text-emerald-900 text-xs px-3 py-1">
-              Pro
-            </span>
-          )}
+          <a href="/pricing" className="rounded-lg bg-emerald-500 text-black px-4 py-2">Activate Pro</a>
         </div>
-
-        {showActivate && (
-          <div className="mt-4 space-y-3 bg-emerald-50 rounded-xl p-4">
-            <p className="text-sm text-slate-700">
-              Enter your <b>Primary ASIN</b> and <b>Breakeven ACOS</b> before checkout.
-            </p>
-            <input
-              value={asin}
-              onChange={(e) => setAsin(e.target.value)}
-              placeholder="Primary ASIN"
-              className="w-full rounded-lg border px-3 py-2"
-            />
-            <input
-              value={acos}
-              onChange={(e) => setAcos(e.target.value)}
-              type="number"
-              min={1}
-              max={95}
-              placeholder="Breakeven ACOS (%)"
-              className="w-full rounded-lg border px-3 py-2"
-            />
-            <div className="flex gap-2">
-              <button onClick={activatePro} className="rounded-lg bg-black text-white px-4 py-2">
-                Continue to Checkout
-              </button>
-              <button
-                onClick={() => setShowActivate(false)}
-                className="rounded-lg border px-4 py-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      <div className={"rounded-2xl border p-5 " + (plan === "free" ? "opacity-50 blur-[1px]" : "")}>
+      <div className="rounded-2xl border p-5 bg-white opacity-50 blur-[1px]">
         <div className="font-medium mb-2">Applied Items</div>
         <div className="text-sm text-slate-600">Latest actions the engine took…</div>
       </div>
 
-      <div className="rounded-2xl border p-5">
+      <div className="rounded-2xl border p-5 bg-white">
         <div className="font-medium mb-2">Your Config</div>
         <div className="text-sm text-slate-600">
-          Primary ASIN: {rules?.primary_asin || "—"} <br />
-          Breakeven ACOS:{" "}
-          {rules?.breakeven_acos != null ? `${rules?.breakeven_acos}%` : "—"}
+          Primary ASIN: — <br /> Breakeven ACOS: —
         </div>
       </div>
     </div>
   );
 }
 
-function Inner() {
+function DashboardBody() {
+  const brand = useBrand();
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [ingesting, setIngesting] = useState(true);
-  const [plan, setPlan] = useState<"free" | "pro">("free");
-  const [rules, setRules] = useState<Rule | null>(null);
 
   useEffect(() => {
-    // Poll status quickly for demo; replace with Supabase realtime later
     let mounted = true;
-
-    async function tick() {
-      const s = await fetch("/api/ads/status").then((r) => r.json());
-      if (!mounted) return;
-
-      // when your provisioner marks done, setIngesting(false)
-      setIngesting(!!s.processing); // placeholder returns false
-      setLoading(false);
-    }
-
-    tick();
-    const id = setInterval(tick, 2500);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, []);
+    (async () => {
+      const res = await fetch(`/api/ads/summary?brand=${encodeURIComponent(brand)}&range=30d`);
+      const data = await res.json();
+      if (mounted) {
+        setSummary(data);
+        setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [brand]);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <Menu />
+      <TopBar />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Chatbot />
-        </div>
-        <div className="lg:col-span-1">
-          <LeftCards plan={plan} rules={rules} />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KpiCard label="Sales (30d)" value={`$${(summary?.sales ?? 0).toLocaleString()}`} />
+        <KpiCard label="Spend (30d)" value={`$${(summary?.spend ?? 0).toLocaleString()}`} />
+        <KpiCard label="ACOS (30d)" value={summary?.acos == null ? "—" : `${summary?.acos}%`} />
       </div>
 
-      {(loading || ingesting) && (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2"><Chatbot /></div>
+        <div className="lg:col-span-1"><LeftColumn /></div>
+      </div>
+
+      {loading && (
         <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center">
           <div className="rounded-2xl bg-white border px-6 py-5 shadow">
             <div className="font-medium">Wiring up your data…</div>
             <div className="text-sm text-slate-600 mt-1">
-              Fetching the last 30 days from Amazon Ads. This usually takes a moment.
+              Fetching the last 30 days from Amazon Ads. This may be empty if no campaigns are found.
             </div>
           </div>
         </div>
@@ -249,7 +171,9 @@ function Inner() {
 export default function DashboardClient() {
   return (
     <Suspense>
-      <Inner />
+      <div className="bg-emerald-50 min-h-[100vh]">
+        <DashboardBody />
+      </div>
     </Suspense>
   );
 }
