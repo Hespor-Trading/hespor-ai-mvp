@@ -8,13 +8,14 @@ export const dynamic = "force-dynamic";
 function ConnectInner() {
   const params = useSearchParams();
   const error = params.get("error");
+  const brand = params.get("brand") || process.env.NEXT_PUBLIC_HESPOR_DEFAULT_BRAND || "default";
 
   const humanError = useMemo(() => {
     if (!error) return null;
     if (error.includes("LWA token exchange failed")) {
       return "Amazon Login token exchange failed. Check LWA Client ID/Secret and the exact redirect URL.";
     }
-    if (error.includes("AccessDenied") || error.toLowerCase().includes("secretsmanager")) {
+    if (error.toLowerCase().includes("secretsmanager") || error.toLowerCase().includes("accessdenied")) {
       return "AWS Secrets Manager permission denied. Attach SecretsManager Create/Put/Get to the IAM user used by Vercel.";
     }
     if (error.includes("missing_authorization_code")) {
@@ -24,16 +25,17 @@ function ConnectInner() {
   }, [error]);
 
   function onAds() {
-    window.location.href = "/api/ads/start";
+    // carry brand in state
+    window.location.href = `/api/ads/start?brand=${encodeURIComponent(brand)}`;
   }
   function onSpapi() {
-    window.location.href = "/api/sp/start";
+    window.location.href = `/api/sp/start?brand=${encodeURIComponent(brand)}`;
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6">
+    <div className="max-w-xl mx-auto p-8">
       <div className="flex items-center gap-3 mb-6">
-        <img src="/hespor-logo.png" className="h-10" alt="Hespor" />
+        <img src="/hespor-logo.png" className="h-8" alt="Hespor" />
         <h1 className="text-2xl font-semibold">Connect your account</h1>
       </div>
 
@@ -62,13 +64,16 @@ function ConnectInner() {
         >
           Connect SP-API (optional)
         </button>
+
+        <div className="text-xs text-slate-500">
+          Current brand: <span className="font-mono">{brand}</span>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function ConnectPage() {
-  // ✅ Needed for Next.js App Router: hooks like useSearchParams must be inside Suspense.
   return (
     <Suspense fallback={<div className="p-6">Loading…</div>}>
       <ConnectInner />
