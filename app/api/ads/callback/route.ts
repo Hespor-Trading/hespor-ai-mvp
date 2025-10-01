@@ -17,9 +17,14 @@ async function upsertSecret(name: string, value: string) {
     await sm.send(new GetSecretValueCommand({ SecretId: name }));
     await sm.send(new PutSecretValueCommand({ SecretId: name, SecretString: value }));
     console.log("✅ Updated secret:", name);
-  } catch {
-    await sm.send(new CreateSecretCommand({ Name: name, SecretString: value }));
-    console.log("✅ Created secret:", name);
+  } catch (e: any) {
+    if (e?.name === "ResourceNotFoundException") {
+      await sm.send(new CreateSecretCommand({ Name: name, SecretString: value }));
+      console.log("✅ Created secret:", name);
+    } else {
+      console.error("❌ SecretsManager error:", e?.name || e?.code, e?.message);
+      throw e;
+    }
   }
 }
 
@@ -36,7 +41,10 @@ async function exchangeCodeForTokens(code: string) {
   const clientSecret = process.env.ADS_LWA_CLIENT_SECRET!;
   const redirect = readRedirect();
 
-  console.log("🔑 Exchanging code:", { code, redirect, clientId: clientId.slice(0,6) + "..." });
+  console.log("🗝️ Exchanging code", {
+    redirect,
+    clientId: clientId ? clientId.slice(0, 6) + "…" : "missing",
+  });
 
   const form = new URLSearchParams();
   form.set("grant_type", "authorization_code");
@@ -51,34 +59,46 @@ async function exchangeCodeForTokens(code: string) {
     body: form.toString(),
   });
 
+  const text = await res.text();
   if (!res.ok) {
-    const text = await res.text();
-    console.error("❌ LWA token exchange failed:", text);
-    throw new Error(`LWA token exchange failed: ${text}`);
+    console.error("❌ LWA token exchange failed", res.status, text);
+    throw new Error(`LWA token exchange failed (${res.status}): ${text}`);
   }
-  const data = await res.json();
-  console.log("✅ Token exchange success:", Object.keys(data));
-  return data;
+
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    console.error("❌ LWA JSON parse failed:", text);
+    throw new Error("LWA JSON parse failed");
+  }
+  console.log("✅ Token exchange success; keys:", Object.keys(data));
+  return data as {
+    access_token: string;
+    refresh_token: string;
+    token_type: string;
+    expires_in: number;
+  };
 }
 
 export async function GET(req: NextRequest) {
   const now = Date.now();
+  const u = new URL(req.url);
+  const brand = u.searchParams.get("state") || "default";
+
   try {
-    const u = new URL(req.url);
-    const brand = u.searchParams.get("state") || "default";
     const code = u.searchParams.get("code");
     if (!code) {
       console.error("❌ Missing authorization code");
-      throw new Error("Missing authorization code");
+      throw new Error("missing_authorization_code");
     }
 
     const tokens = await exchangeCodeForTokens(code);
-    await upsertSecret(
-      `amazon-ads/credentials/${brand}`,
-      JSON.stringify({ ...tokens, obtained_at: now })
-    );
 
-    console.log("✅ Callback complete, redirecting to dashboard");
+    const secretName = `amazon-ads/credentials/${brand}`;
+    await upsertSecret(secretName, JSON.stringify({ ...tokens, obtained_at: now }));
+
+    console.log("✅ Callback complete → redirect /dashboard");
     const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, u.origin));
     res.cookies.set({
       name: "ads_connected",
@@ -90,11 +110,11 @@ export async function GET(req: NextRequest) {
     });
     return res;
   } catch (err: any) {
-    console.error("❌ ADS CALLBACK ERROR:", err?.message || err);
-    const u = new URL(req.url);
-    const brand = u.searchParams.get("state") || "default";
+    const msg = err?.message || String(err);
+    console.error("❌ ADS CALLBACK ERROR:", msg);
+    // Bubble the reason back to the UI for you to see
     return NextResponse.redirect(
-      new URL(`/connect?brand=${brand}&error=${encodeURIComponent(err?.message || "ads_callback_error")}`, u.origin)
+      new URL(`/connect?error=${encodeURIComponent(msg)}`, u.origin)
     );
   }
 }
