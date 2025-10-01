@@ -16,8 +16,10 @@ async function upsertSecret(name: string, value: string) {
   try {
     await sm.send(new GetSecretValueCommand({ SecretId: name }));
     await sm.send(new PutSecretValueCommand({ SecretId: name, SecretString: value }));
+    console.log("✅ Updated secret:", name);
   } catch {
     await sm.send(new CreateSecretCommand({ Name: name, SecretString: value }));
+    console.log("✅ Created secret:", name);
   }
 }
 
@@ -34,6 +36,8 @@ async function exchangeCodeForTokens(code: string) {
   const clientSecret = process.env.ADS_LWA_CLIENT_SECRET!;
   const redirect = readRedirect();
 
+  console.log("🔑 Exchanging code:", { code, redirect, clientId: clientId.slice(0,6) + "..." });
+
   const form = new URLSearchParams();
   form.set("grant_type", "authorization_code");
   form.set("code", code);
@@ -49,50 +53,12 @@ async function exchangeCodeForTokens(code: string) {
 
   if (!res.ok) {
     const text = await res.text();
+    console.error("❌ LWA token exchange failed:", text);
     throw new Error(`LWA token exchange failed: ${text}`);
   }
-  return res.json() as Promise<{
-    access_token: string;
-    refresh_token: string;
-    token_type: string;
-    expires_in: number;
-  }>;
-}
-
-async function startIngestion(brand: string) {
-  // Call your provisioner/ingestor to fetch last 30 days ads data
-  const url = process.env.PROVISIONER_URL || "";
-  const secret = process.env.PROVISIONER_HMAC_SECRET || "";
-  if (!url) return;
-
-  const payload = {
-    action: "ads_ingest_30d",
-    brand,
-    // Add more fields if your provisioner expects them
-    timestamp: Date.now(),
-  };
-  const body = JSON.stringify(payload);
-
-  // simple HMAC header
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sigBuf = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  const signature = Buffer.from(sigBuf).toString("hex");
-
-  await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Hespor-Signature": signature,
-    },
-    body,
-  }).catch(() => {});
+  const data = await res.json();
+  console.log("✅ Token exchange success:", Object.keys(data));
+  return data;
 }
 
 export async function GET(req: NextRequest) {
@@ -101,7 +67,10 @@ export async function GET(req: NextRequest) {
     const u = new URL(req.url);
     const brand = u.searchParams.get("state") || "default";
     const code = u.searchParams.get("code");
-    if (!code) throw new Error("Missing authorization code");
+    if (!code) {
+      console.error("❌ Missing authorization code");
+      throw new Error("Missing authorization code");
+    }
 
     const tokens = await exchangeCodeForTokens(code);
     await upsertSecret(
@@ -109,12 +78,8 @@ export async function GET(req: NextRequest) {
       JSON.stringify({ ...tokens, obtained_at: now })
     );
 
-    // Kick off 30d ingest in the background
-    startIngestion(brand);
-
-    // Go to dashboard
+    console.log("✅ Callback complete, redirecting to dashboard");
     const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, u.origin));
-    // allow dashboard immediately
     res.cookies.set({
       name: "ads_connected",
       value: "1",
@@ -125,13 +90,11 @@ export async function GET(req: NextRequest) {
     });
     return res;
   } catch (err: any) {
+    console.error("❌ ADS CALLBACK ERROR:", err?.message || err);
     const u = new URL(req.url);
     const brand = u.searchParams.get("state") || "default";
     return NextResponse.redirect(
-      new URL(
-        `/connect?brand=${brand}&error=${encodeURIComponent(err?.message || "ads_callback_error")}`,
-        u.origin
-      )
+      new URL(`/connect?brand=${brand}&error=${encodeURIComponent(err?.message || "ads_callback_error")}`, u.origin)
     );
   }
 }
