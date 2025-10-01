@@ -59,6 +59,42 @@ async function exchangeCodeForTokens(code: string) {
   }>;
 }
 
+async function startIngestion(brand: string) {
+  // Call your provisioner/ingestor to fetch last 30 days ads data
+  const url = process.env.PROVISIONER_URL || "";
+  const secret = process.env.PROVISIONER_HMAC_SECRET || "";
+  if (!url) return;
+
+  const payload = {
+    action: "ads_ingest_30d",
+    brand,
+    // Add more fields if your provisioner expects them
+    timestamp: Date.now(),
+  };
+  const body = JSON.stringify(payload);
+
+  // simple HMAC header
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sigBuf = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  const signature = Buffer.from(sigBuf).toString("hex");
+
+  await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Hespor-Signature": signature,
+    },
+    body,
+  }).catch(() => {});
+}
+
 export async function GET(req: NextRequest) {
   const now = Date.now();
   try {
@@ -73,8 +109,12 @@ export async function GET(req: NextRequest) {
       JSON.stringify({ ...tokens, obtained_at: now })
     );
 
-    // ⬇️ After consent, go straight to Dashboard
+    // Kick off 30d ingest in the background
+    startIngestion(brand);
+
+    // Go to dashboard
     const res = NextResponse.redirect(new URL(`/dashboard?brand=${brand}`, u.origin));
+    // allow dashboard immediately
     res.cookies.set({
       name: "ads_connected",
       value: "1",
