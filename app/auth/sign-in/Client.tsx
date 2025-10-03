@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
 import LegalModal from "@/components/LegalModal";
@@ -22,7 +22,6 @@ const errorMap: Record<FriendlyError, string> = {
 };
 
 function Inner() {
-  const router = useRouter();
   const search = useSearchParams();
   const supabase = createClientComponentClient();
 
@@ -48,6 +47,12 @@ function Inner() {
     setErr(null);
 
     try {
+      if (!email || !password) {
+        setErr("unknown");
+        toast.error("Please enter email and password.");
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         const msg = error.message.toLowerCase();
@@ -59,9 +64,14 @@ function Inner() {
         return;
       }
 
-      // 🔒 Do NOT go directly to /connect (avoids edge-cookie race with middleware)
-      // Use the public callback handoff, then it will push to /connect.
-      router.replace("/auth/callback?next=/connect");
+      // Ensure session is materialized on client
+      await supabase.auth.getSession();
+
+      // Small delay to let cookies flush to the browser, then HARD redirect
+      // so the very next request to /connect includes the auth cookies.
+      setTimeout(() => {
+        window.location.assign("/connect");
+      }, 250);
     } catch (e) {
       console.error("SIGN-IN ERROR:", e);
       setErr("unknown");
