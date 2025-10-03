@@ -33,7 +33,6 @@ function Inner() {
   const [err, setErr] = useState<FriendlyError | null>(null);
   const [legalOpen, setLegalOpen] = useState(false);
 
-  // Surface URL ?error if present
   useEffect(() => {
     const error = search.get("error");
     if (error) {
@@ -49,14 +48,7 @@ function Inner() {
     setErr(null);
 
     try {
-      if (!email || !password) {
-        setErr("unknown");
-        toast.error("Please enter email and password.");
-        return;
-      }
-
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-
       if (error) {
         const msg = error.message.toLowerCase();
         if (msg.includes("email not confirmed")) setErr("email_not_confirmed");
@@ -67,12 +59,9 @@ function Inner() {
         return;
       }
 
-      // Ensure the session cookie is written before navigation
-      await supabase.auth.getSession();
-
-      // ✅ Password login → go directly to /connect (avoid callback race)
-      router.replace("/connect");
-      toast.success("Signed in.");
+      // 🔒 Do NOT go directly to /connect (avoids edge-cookie race with middleware)
+      // Use the public callback handoff, then it will push to /connect.
+      router.replace("/auth/callback?next=/connect");
     } catch (e) {
       console.error("SIGN-IN ERROR:", e);
       setErr("unknown");
@@ -82,17 +71,10 @@ function Inner() {
     }
   }
 
-  // Fallback click handler – in case the browser swallows submit for any reason
-  function handleClickSubmit() {
-    if (loading) return;
-    formRef.current?.requestSubmit();
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-emerald-600 flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          {/* ensure logo renders even if optimizer misbehaves */}
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority unoptimized />
           <h1 className="text-xl font-semibold">Sign in to Hespor</h1>
         </div>
@@ -133,9 +115,7 @@ function Inner() {
 
           <button
             type="submit"
-            onClick={handleClickSubmit}
             disabled={loading}
-            aria-disabled={loading}
             className="w-full rounded-lg bg-emerald-600 text-white py-2 font-semibold hover:bg-emerald-700 disabled:opacity-60"
           >
             {loading ? "Signing in..." : "Sign in"}
