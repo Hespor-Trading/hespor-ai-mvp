@@ -4,17 +4,16 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * After Supabase completes OAuth/email link, we land here.
- * If session exists -> push to /connect
- * If not -> /auth/sign-in
+ * Public handoff page used both after OAuth AND after password login.
+ * It pushes to the requested next path (default: /connect).
  */
 function CallbackInner() {
   const router = useRouter();
   const search = useSearchParams();
 
   useEffect(() => {
-    const next = search.get("next");
-    router.replace(next || "/connect");
+    const next = search.get("next") || "/connect";
+    router.replace(next);
   }, [router, search]);
 
   return (
