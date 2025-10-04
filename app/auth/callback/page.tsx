@@ -5,16 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 /**
- * PUBLIC handoff after auth (email/password or OAuth):
- * Ensures cookies are set, then navigates to ?next or /connect
+ * After magic-link / OAuth, set cookies then send to ?next or /connect
  */
-function CallbackInner() {
+function Inner() {
   const router = useRouter();
   const search = useSearchParams();
 
   useEffect(() => {
     const supabase = createClientComponentClient();
-    async function run() {
+    (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         await fetch("/api/auth/session", {
@@ -29,8 +28,7 @@ function CallbackInner() {
       }
       const next = search.get("next") || "/connect";
       router.replace(next);
-    }
-    run();
+    })();
   }, [router, search]);
 
   return (
@@ -45,14 +43,8 @@ function CallbackInner() {
 
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <p className="text-gray-700">Loading…</p>
-        </div>
-      }
-    >
-      <CallbackInner />
+    <Suspense fallback={<div className="min-h-[60vh] grid place-items-center">Loading…</div>}>
+      <Inner />
     </Suspense>
   );
 }
