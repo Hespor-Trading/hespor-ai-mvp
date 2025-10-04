@@ -18,7 +18,6 @@ function Inner() {
   const next = sp.get("next") || "/connect";
 
   useEffect(() => {
-    // If we already have a session, go straight to /connect (middleware will handle too)
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) router.replace(next);
@@ -31,10 +30,7 @@ function Inner() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) {
-      alert(error.message);
-      return;
-    }
+    if (error) return alert(error.message);
     router.replace(next);
   }
 
@@ -44,9 +40,7 @@ function Inner() {
       typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
+      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
     });
     if (error) {
       setLoading(false);
@@ -58,14 +52,17 @@ function Inner() {
     <div className="min-h-screen w-full bg-emerald-600 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <Image
-            src="/hespor-logo.png"
-            alt="Hespor"
-            width={56}
-            height={56}
-            priority
-            className="h-14 w-14"
-          />
+          {/* EXACT same box as sign-up to avoid layout differences */}
+          <div className="h-16 w-16 relative">
+            <Image
+              src="/hespor-logo.png"
+              alt="Hespor"
+              fill
+              sizes="64px"
+              priority
+              className="object-contain"
+            />
+          </div>
           <h1 className="text-xl font-semibold">Welcome back</h1>
           <p className="text-sm text-gray-600 text-center">
             Sign in to continue to your Hespor dashboard.
