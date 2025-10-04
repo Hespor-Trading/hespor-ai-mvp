@@ -9,7 +9,6 @@ const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
-// Service client is fine here (route runs server-side)
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
 export async function POST(req: Request) {
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
     const { email } = await req.json();
     if (!email) return new NextResponse("Email required", { status: 400 });
 
-    // Use auth.resend on your SDK version (admin.resend not available)
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
