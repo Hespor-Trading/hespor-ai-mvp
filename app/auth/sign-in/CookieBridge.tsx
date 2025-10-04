@@ -4,15 +4,15 @@ import { useEffect } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 /**
- * Listens for Supabase SIGNED_IN and mirrors the client session into
- * HTTP-only cookies via /api/auth/session, then hard-redirects to /connect.
+ * Mirrors the client session into HTTP-only cookies
+ * so middleware can "see" the login, then sends you to /connect.
  */
 export default function CookieBridge() {
   useEffect(() => {
     const supabase = createClientComponentClient();
 
-    // On first mount (in case we already have a session)
-    supabase.auth.getSession().then(async ({ data }) => {
+    const sync = async () => {
+      const { data } = await supabase.auth.getSession();
       if (data.session) {
         await fetch("/api/auth/session", {
           method: "POST",
@@ -24,9 +24,12 @@ export default function CookieBridge() {
           }),
         });
       }
-    });
+    };
 
-    // Also subscribe to SIGNED_IN events
+    // on first load (handles "already signed in" cases)
+    void sync();
+
+    // and on state changes (fresh sign-ins)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         await fetch("/api/auth/session", {
@@ -38,7 +41,7 @@ export default function CookieBridge() {
             refresh_token: session.refresh_token,
           }),
         });
-        // Hard redirect so middleware sees cookies
+        // hard redirect so middleware runs with cookies
         window.location.assign("/connect");
       }
     });
