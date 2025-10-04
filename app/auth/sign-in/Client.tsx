@@ -19,13 +19,13 @@ function Inner() {
 
   const next = sp.get("next") || "/connect";
   const verified = sp.get("verified");
-  const awaiting = sp.get("awaiting"); // came right after sign-up
+  const awaiting = sp.get("awaiting");
 
   useEffect(() => {
     if (verified === "1") toast.success("Email verified. You can sign in now.");
     if (awaiting === "1")
       toast.message("Check your inbox for the verification email.", {
-        description: "Didn’t get it? Use the Resend link below.",
+        description: "Didn’t get it? Use Resend below.",
       });
   }, [verified, awaiting]);
 
@@ -83,9 +83,10 @@ function Inner() {
     <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow">
         <div className="flex items-center justify-center mb-4">
+          {/* logo only (no extra text beside) */}
           <Image src="/hespor-logo.png" alt="Hespor" width={40} height={40} />
-          <span className="ml-2 text-xl font-semibold">Hespor</span>
         </div>
+
         <h1 className="text-lg font-semibold text-center mb-6">Sign in</h1>
 
         <form onSubmit={handleSignIn} className="space-y-4">
@@ -137,6 +138,16 @@ function Inner() {
             >
               {resending ? "Resending…" : "Resend verification"}
             </button>
+          </div>
+
+          <div className="text-center text-sm mt-1">
+            <Link href="/legal/terms" className="underline">
+              Terms
+            </Link>{" "}
+            ·{" "}
+            <Link href="/legal/privacy" className="underline">
+              Privacy
+            </Link>
           </div>
 
           <p className="text-center text-sm">
