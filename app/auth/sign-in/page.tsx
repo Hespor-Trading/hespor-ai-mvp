@@ -1,11 +1,10 @@
-// app/auth/sign-in/page.tsx
-import NextDynamic from "next/dynamic";
+import dynamic from "next/dynamic";
 import CookieBridge from "./CookieBridge";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const Client = NextDynamic(() => import("./Client"), { ssr: false });
+const Client = dynamic(() => import("./Client"), { ssr: false });
 
 export default function Page() {
   return (
