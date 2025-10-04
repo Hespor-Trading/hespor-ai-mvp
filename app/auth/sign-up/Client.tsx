@@ -40,7 +40,7 @@ export default function SignUpClient() {
         process.env.NEXT_PUBLIC_SITE_URL ||
         "";
 
-      // ✅ require email verification (send verification link)
+      // 1) Create user (Supabase should send verification)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -57,26 +57,46 @@ export default function SignUpClient() {
 
       if (error) {
         toast.error(error.message);
+        setLoading(false);
         return;
       }
 
-      // upsert profile (safe if table exists)
+      // 2) Store/merge profile (safe if table exists)
       if (data.user) {
-        await supabase.from("profiles").upsert(
-          {
-            id: data.user.id,
-            email,
-            first_name: firstName,
-            last_name: lastName,
-            business_name: businessName,
-            amazon_brand: amazonBrand,
-          },
-          { onConflict: "id" }
-        );
+        await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: data.user.id,
+              email,
+              first_name: firstName,
+              last_name: lastName,
+              business_name: businessName,
+              amazon_brand: amazonBrand,
+            },
+            { onConflict: "id" }
+          )
+          .catch(() => void 0);
+      }
+
+      // 3) Fallback: force a resend to guarantee delivery (covers edge cases:
+      //    existing user not confirmed yet, SMTP hiccup, etc.)
+      try {
+        const res = await fetch("/api/auth/resend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        if (!res.ok) {
+          // don't block the flow—just inform
+          const msg = await res.text();
+          console.warn("resend failed:", msg);
+        }
+      } catch (err) {
+        console.warn("resend network error", err);
       }
 
       toast.success("Verification email sent. Please check your inbox.");
-      // Send them to sign-in with a hint to check email
       router.replace("/auth/sign-in?awaiting=1");
     } catch {
       toast.error("Something went wrong. Please try again.");
