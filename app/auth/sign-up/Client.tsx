@@ -40,7 +40,7 @@ export default function SignUpClient() {
         process.env.NEXT_PUBLIC_SITE_URL ||
         "";
 
-      // 1) Create user (Supabase should send verification)
+      // 1) Create user (Supabase will send verification email)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -63,7 +63,7 @@ export default function SignUpClient() {
 
       // 2) Store/merge profile (safe if table exists)
       if (data.user) {
-        await supabase
+        const { error: profileError } = await supabase
           .from("profiles")
           .upsert(
             {
@@ -75,25 +75,23 @@ export default function SignUpClient() {
               amazon_brand: amazonBrand,
             },
             { onConflict: "id" }
-          )
-          .catch(() => void 0);
+          );
+
+        if (profileError) {
+          // Don’t block the flow; just log for diagnostics
+          console.warn("profiles upsert warning:", profileError.message);
+        }
       }
 
-      // 3) Fallback: force a resend to guarantee delivery (covers edge cases:
-      //    existing user not confirmed yet, SMTP hiccup, etc.)
+      // 3) Fallback: attempt a resend to guarantee delivery (non-blocking)
       try {
-        const res = await fetch("/api/auth/resend", {
+        await fetch("/api/auth/resend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
-        if (!res.ok) {
-          // don't block the flow—just inform
-          const msg = await res.text();
-          console.warn("resend failed:", msg);
-        }
       } catch (err) {
-        console.warn("resend network error", err);
+        console.warn("resend network warning:", err);
       }
 
       toast.success("Verification email sent. Please check your inbox.");
