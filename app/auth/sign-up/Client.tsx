@@ -53,7 +53,7 @@ function Inner() {
     setLoading(false);
     if (error) return alert(error.message);
 
-    // show "check your email" screen (see files below)
+    // redirect to verify email page
     router.replace(`/auth/verify/pending?email=${encodeURIComponent(form.email)}`);
   }
 
@@ -177,11 +177,11 @@ function Inner() {
             />
             <span>
               I agree to the{" "}
-              <Link href="/terms" className="text-emerald-700 font-medium" target="_blank">
+              <Link href="/legal/terms" className="text-emerald-700 font-medium" target="_blank">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="text-emerald-700 font-medium" target="_blank">
+              <Link href="/legal/privacy" className="text-emerald-700 font-medium" target="_blank">
                 Privacy Policy
               </Link>
               .
