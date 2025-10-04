@@ -14,36 +14,24 @@ const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json().catch(() => ({}));
-    if (!email || typeof email !== "string") {
-      return new NextResponse("Email required", { status: 400 });
-    }
-    if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-      return new NextResponse("Invalid email", { status: 400 });
-    }
+    const { email } = await req.json();
+    if (!email) return new NextResponse("Email required", { status: 400 });
 
-    // 60s rate limit
     const key = `resend:${email}`;
     if (redis) {
-      const ttl = await redis.ttl(key);
-      if (ttl > 0) return new NextResponse(`Please wait ${ttl}s`, { status: 429 });
+      const exists = await redis.get(key);
+      if (exists) return new NextResponse("Rate limited", { status: 429 });
     }
 
-    // Correct API for resending verification: auth.resend (not admin.generateLink)
-    const { error } = await supabase.auth.resend({
-      type: "signup",
+    const { error } = await supabase.auth.admin.resend({
       email,
-      options: {
-        // resend uses emailRedirectTo (same as signUp)
-        emailRedirectTo: `${APP_URL}/auth/sign-in?verified=1`,
-      },
+      type: "signup",
+      options: { emailRedirectTo: `${APP_URL}/auth/sign-in?verified=1` },
     });
 
     if (error) return new NextResponse(error.message, { status: 400 });
-
     if (redis) await redis.set(key, "1", "EX", 60);
-
-    return NextResponse.json({ ok: true, email });
+    return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("resend error", e);
     return new NextResponse("Server error", { status: 500 });
