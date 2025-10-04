@@ -2,18 +2,35 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 /**
  * PUBLIC handoff after auth (email/password or OAuth):
- * Reads ?next and navigates there. Default: /connect
+ * Ensures cookies are set, then navigates to ?next or /connect
  */
 function CallbackInner() {
   const router = useRouter();
   const search = useSearchParams();
 
   useEffect(() => {
-    const next = search.get("next") || "/connect";
-    router.replace(next);
+    const supabase = createClientComponentClient();
+    async function run() {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          }),
+        });
+      }
+      const next = search.get("next") || "/connect";
+      router.replace(next);
+    }
+    run();
   }, [router, search]);
 
   return (
