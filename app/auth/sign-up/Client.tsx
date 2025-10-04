@@ -10,43 +10,60 @@ function Inner() {
   const supabase = createClientComponentClient();
   const router = useRouter();
   const sp = useSearchParams();
-
   const next = sp.get("next") || "/connect";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    brand: "",
+    email: "",
+    password: "",
+    confirm: "",
+    agree: false,
+  });
   const [loading, setLoading] = useState(false);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
+  }
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.agree) return alert("Please accept Terms & Privacy first.");
+    if (form.password !== form.confirm) return alert("Passwords do not match.");
+
     setLoading(true);
-
     const origin =
-      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SITE_URL!;
 
-    // Pure Supabase ready-made sign up (no extra profile upserts, no builder.catch)
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+    const { error, data } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
       options: {
+        data: {
+          first_name: form.firstName,
+          last_name: form.lastName,
+          amazon_brand: form.brand,
+        },
         emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
 
     setLoading(false);
-    if (error) {
-      alert(error.message);
-      return;
-    }
+    if (error) return alert(error.message);
 
-    // Go to “check your email” screen (optional route in your app)
-    router.replace(`/auth/verify/pending?email=${encodeURIComponent(email)}`);
+    router.replace(`/auth/verify/pending?email=${encodeURIComponent(form.email)}`);
   }
 
   async function signUpWithGoogle() {
     setLoading(true);
     const origin =
-      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SITE_URL!;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
@@ -61,7 +78,7 @@ function Inner() {
     <div className="min-h-screen w-full bg-emerald-600 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <Image src="/hespor-logo.png" alt="Hespor" width={56} height={56} priority />
+          <Image src="/hespor-logo.png" alt="Hespor" width={60} height={60} priority />
           <h1 className="text-xl font-semibold">Create your account</h1>
           <p className="text-sm text-gray-600 text-center">
             Sign up and we’ll email you a verification link.
@@ -83,28 +100,87 @@ function Inner() {
         </div>
 
         <form onSubmit={signUp} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+          <div className="flex gap-2">
             <input
-              type="email"
+              type="text"
+              name="firstName"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="you@email.com"
+              value={form.firstName}
+              onChange={handleChange}
+              placeholder="First name"
+              className="w-1/2 rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+            />
+            <input
+              type="text"
+              name="lastName"
+              required
+              value={form.lastName}
+              onChange={handleChange}
+              placeholder="Last name"
+              className="w-1/2 rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+
+          <input
+            type="text"
+            name="brand"
+            required
+            value={form.brand}
+            onChange={handleChange}
+            placeholder="Amazon brand"
+            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+          />
+
+          <input
+            type="email"
+            name="email"
+            required
+            value={form.email}
+            onChange={handleChange}
+            placeholder="you@email.com"
+            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+          />
+
+          <input
+            type="password"
+            name="password"
+            required
+            value={form.password}
+            onChange={handleChange}
+            placeholder="Password (min 6 chars)"
+            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+          />
+
+          <input
+            type="password"
+            name="confirm"
+            required
+            value={form.confirm}
+            onChange={handleChange}
+            placeholder="Confirm password"
+            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+          />
+
+          <label className="flex items-start gap-2 text-sm">
             <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="Minimum 6 characters"
+              type="checkbox"
+              name="agree"
+              checked={form.agree}
+              onChange={handleChange}
+              className="mt-1 accent-emerald-600"
             />
-          </div>
+            <span>
+              I agree to the{" "}
+              <Link href="/terms" className="text-emerald-700 font-medium" target="_blank">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-emerald-700 font-medium" target="_blank">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
 
           <button
             type="submit"
