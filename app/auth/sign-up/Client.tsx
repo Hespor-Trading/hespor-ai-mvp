@@ -24,6 +24,7 @@ function Inner() {
     const origin =
       typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
 
+    // Pure Supabase ready-made sign up (no extra profile upserts, no builder.catch)
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -37,6 +38,8 @@ function Inner() {
       alert(error.message);
       return;
     }
+
+    // Go to “check your email” screen (optional route in your app)
     router.replace(`/auth/verify/pending?email=${encodeURIComponent(email)}`);
   }
 
