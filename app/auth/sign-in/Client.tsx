@@ -8,15 +8,11 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
 import LegalModal from "@/components/LegalModal";
 
-type FriendlyError =
-  | "invalid_credentials"
-  | "email_not_confirmed"
-  | "rate_limited"
-  | "unknown";
+type FriendlyError = "invalid_credentials" | "email_not_confirmed" | "rate_limited" | "unknown";
 
 const errorMap: Record<FriendlyError, string> = {
   invalid_credentials: "Email or password is incorrect.",
-  email_not_confirmed: "Please verify your email first. We’ve sent you a confirmation link.",
+  email_not_confirmed: "Please verify your email first.",
   rate_limited: "Too many attempts. Please try again later.",
   unknown: "Something went wrong. Please try again.",
 };
@@ -64,10 +60,10 @@ function Inner() {
         return;
       }
 
-      // Ensure session exists on client
+      // Make sure session is real on the client (forces cookie creation)
       await supabase.auth.getSession();
 
-      // Hard redirect so next request includes cookies
+      // HARD redirect so the /connect request includes the new cookies.
       window.location.assign("/connect");
     } catch (e) {
       console.error("SIGN-IN ERROR:", e);
