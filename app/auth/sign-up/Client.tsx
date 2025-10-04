@@ -1,136 +1,135 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function SignUpClient() {
-  const supabase = createClientComponentClient();
   const router = useRouter();
 
+  const [businessName, setBusinessName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [agree, setAgree] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agree) {
-      toast.error("Please agree to the Terms & Privacy.");
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
       return;
     }
+
     setLoading(true);
-    try {
-      // IMPORTANT: always provide emailRedirectTo so Supabase knows where to send after verification
-      const appUrl =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        "";
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${appUrl}/auth/sign-in?verified=1`,
-        },
-      });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/sign-in?verified=1`,
+        data: { business_name: businessName },
+      },
+    });
 
-      if (error) {
-        toast.error(error.message);
-        return;
+    if (error) {
+      setError(error.message);
+    } else {
+      // insert into profiles if needed
+      if (data.user) {
+        await supabase.from("profiles").insert({
+          id: data.user.id,
+          business_name: businessName,
+          email,
+        });
       }
-
-      // If Supabase accepted the request, it *has* queued the email to SMTP.
-      toast.success(
-        "Verification email sent. Please check your inbox and spam folder."
-      );
-
-      // Optional: give a 1-click resend if user didn’t receive it
-      // We route them to sign-in page now
-      router.replace("/auth/sign-in?awaiting=1");
-    } catch (err) {
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
+      router.push("/auth/sign-in?checkEmail=1");
     }
-  }
+
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow">
-        <div className="flex items-center justify-center mb-4">
-          <Image src="/hespor-logo.png" alt="Hespor" width={40} height={40} />
-          <span className="ml-2 text-xl font-semibold">Hespor</span>
+    <div className="flex justify-center items-center min-h-screen bg-emerald-900">
+      <form
+        onSubmit={handleSignUp}
+        className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md"
+      >
+        <h2 className="text-2xl font-bold mb-6 text-center text-emerald-700">
+          Create Your Hespor Account
+        </h2>
+
+        {error && (
+          <div className="bg-red-100 text-red-700 p-2 mb-4 rounded">{error}</div>
+        )}
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Business Name
+          </label>
+          <input
+            type="text"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
         </div>
 
-        <h1 className="text-lg font-semibold text-center mb-6">
-          Create your account
-        </h1>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              type="password"
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={agree}
-              onChange={(e) => setAgree(e.target.checked)}
-            />
-            I agree to the{" "}
-            <Link href="/legal/terms" className="underline">
-              Terms
-            </Link>{" "}
-            and{" "}
-            <Link href="/legal/privacy" className="underline">
-              Privacy
-            </Link>
-            .
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Email
           </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-emerald-600 text-white px-4 py-3 font-medium hover:opacity-90 disabled:opacity-60"
-          >
-            {loading ? "Creating…" : "Create account"}
-          </button>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
+        </div>
 
-          <p className="text-center text-sm">
-            Already have an account?{" "}
-            <Link href="/auth/sign-in" className="underline">
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </div>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700">
+            Confirm Password
+          </label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-emerald-700 text-white py-2 px-4 rounded-md hover:bg-emerald-800 transition"
+        >
+          {loading ? "Signing Up..." : "Sign Up"}
+        </button>
+      </form>
     </div>
   );
 }
