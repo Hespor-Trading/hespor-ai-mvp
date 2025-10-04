@@ -33,8 +33,8 @@ export default function SignUpClient() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      // 👇 no emailRedirectTo, we skip verification
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/sign-in?verified=1`,
         data: { business_name: businessName },
       },
     });
@@ -42,7 +42,7 @@ export default function SignUpClient() {
     if (error) {
       setError(error.message);
     } else {
-      // insert into profiles if needed
+      // also save profile if table exists
       if (data.user) {
         await supabase.from("profiles").insert({
           id: data.user.id,
@@ -50,7 +50,8 @@ export default function SignUpClient() {
           email,
         });
       }
-      router.push("/auth/sign-in?checkEmail=1");
+      // go straight to sign-in after signup
+      router.push("/auth/sign-in");
     }
 
     setLoading(false);
@@ -127,7 +128,7 @@ export default function SignUpClient() {
           disabled={loading}
           className="w-full bg-emerald-700 text-white py-2 px-4 rounded-md hover:bg-emerald-800 transition"
         >
-          {loading ? "Signing Up..." : "Sign Up"}
+          {loading ? "Creating…" : "Sign Up"}
         </button>
       </form>
     </div>
