@@ -35,11 +35,9 @@ function Inner() {
 
     setLoading(true);
     const origin =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL!;
+      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
 
-    const { error, data } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -55,15 +53,14 @@ function Inner() {
     setLoading(false);
     if (error) return alert(error.message);
 
+    // show "check your email" screen (see files below)
     router.replace(`/auth/verify/pending?email=${encodeURIComponent(form.email)}`);
   }
 
   async function signUpWithGoogle() {
     setLoading(true);
     const origin =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL!;
+      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
@@ -78,7 +75,16 @@ function Inner() {
     <div className="min-h-screen w-full bg-emerald-600 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <Image src="/hespor-logo.png" alt="Hespor" width={60} height={60} priority />
+          <div className="h-16 w-16 relative">
+            <Image
+              src="/hespor-logo.png"
+              alt="Hespor"
+              fill
+              sizes="64px"
+              priority
+              className="object-contain"
+            />
+          </div>
           <h1 className="text-xl font-semibold">Create your account</h1>
           <p className="text-sm text-gray-600 text-center">
             Sign up and we’ll email you a verification link.
