@@ -4,8 +4,8 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Public handoff page used both after OAuth AND after password login.
- * It pushes to the requested next path (default: /connect).
+ * PUBLIC handoff after auth (email/password or OAuth):
+ * Reads ?next and navigates there. Default: /connect
  */
 function CallbackInner() {
   const router = useRouter();
