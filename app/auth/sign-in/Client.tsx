@@ -6,7 +6,6 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
-import LegalModal from "@/components/LegalModal";
 
 type FriendlyError = "invalid_credentials" | "email_not_confirmed" | "rate_limited" | "unknown";
 
@@ -26,7 +25,6 @@ function Inner() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<FriendlyError | null>(null);
-  const [legalOpen, setLegalOpen] = useState(false);
 
   useEffect(() => {
     const error = search.get("error");
@@ -60,10 +58,10 @@ function Inner() {
         return;
       }
 
-      // Make sure session is real on the client (forces cookie creation)
+      // Ensure session exists client-side
       await supabase.auth.getSession();
 
-      // HARD redirect so the /connect request includes the new cookies.
+      // Hard redirect so /connect request includes the cookies
       window.location.assign("/connect");
     } catch (e) {
       console.error("SIGN-IN ERROR:", e);
@@ -75,8 +73,8 @@ function Inner() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-emerald-600 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-emerald-200 to-emerald-600 flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
           <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority unoptimized />
           <h1 className="text-xl font-semibold">Sign in to Hespor</h1>
@@ -128,9 +126,15 @@ function Inner() {
             <Link href="/auth/reset" className="underline">
               Forgot password?
             </Link>
-            <button type="button" className="underline" onClick={() => setLegalOpen(true)}>
-              Terms & Privacy
-            </button>
+            <div className="space-x-2">
+              <Link href="/legal/terms" className="underline">
+                Terms
+              </Link>
+              <span>·</span>
+              <Link href="/legal/privacy" className="underline">
+                Privacy
+              </Link>
+            </div>
           </div>
 
           <div className="text-center text-sm">
@@ -140,8 +144,6 @@ function Inner() {
             </Link>
           </div>
         </form>
-
-        <LegalModal open={legalOpen} onClose={() => setLegalOpen(false)} />
       </div>
     </div>
   );
