@@ -1,5 +1,4 @@
 import NextDynamic from "next/dynamic";
-import CookieBridge from "./CookieBridge";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -7,10 +6,5 @@ export const revalidate = 0;
 const Client = NextDynamic(() => import("./Client"), { ssr: false });
 
 export default function Page() {
-  return (
-    <>
-      <CookieBridge />
-      <Client />
-    </>
-  );
+  return <Client />;
 }
