@@ -23,32 +23,20 @@ function Inner() {
     }
     setStatus("sending");
     setMessage("");
-
-    try {
-      const origin =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_URL!;
-
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: {
-          emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
-      });
-
-      if (error) {
-        setStatus("error");
-        setMessage(error.message);
-        return;
-        }
-      setStatus("sent");
-      setMessage("Verification email sent. Check your inbox (and spam).");
-    } catch (e: any) {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
+    });
+    if (error) {
       setStatus("error");
-      setMessage(e?.message || "Failed to resend email.");
+      setMessage(error.message);
+      return;
     }
+    setStatus("sent");
+    setMessage("Verification email sent. Check your inbox (and spam).");
   }
 
   return (
@@ -56,19 +44,12 @@ function Inner() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
           <div className="h-16 w-16 relative">
-            <Image
-              src="/hespor-logo.png"
-              alt="Hespor"
-              fill
-              sizes="64px"
-              priority
-              className="object-contain"
-            />
+            <Image src="/hespor-logo.png" alt="Hespor" fill sizes="64px" priority className="object-contain" />
           </div>
           <h1 className="text-xl font-semibold">Check your email</h1>
           <p className="text-sm text-gray-600 text-center">
             We’ve sent a verification link to <span className="font-medium">{email || "your email"}</span>.
-            Click it to activate your account and continue to your dashboard.
+            Click it to activate your account.
           </p>
         </div>
 
@@ -81,13 +62,7 @@ function Inner() {
         </button>
 
         {message ? (
-          <p
-            className={`mt-3 text-sm ${
-              status === "error" ? "text-red-600" : "text-emerald-700"
-            }`}
-          >
-            {message}
-          </p>
+          <p className={`mt-3 text-sm ${status === "error" ? "text-red-600" : "text-emerald-700"}`}>{message}</p>
         ) : null}
 
         <p className="text-xs text-gray-600 mt-6 text-center">
