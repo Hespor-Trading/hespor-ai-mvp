@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Public: "/", "/auth/*", "/terms", "/privacy", ads auth endpoints, and static assets
- * Private: "/connect", "/dashboard" (and other non-public pages)
- *
- * Session detection supports multiple cookie names used by Supabase.
+ * Auth middleware
+ * - Public: "/", "/connect", "/auth/*", "/terms", "/privacy", Ads auth endpoints,
+ *           and ANY static asset (images/css/js/fonts/etc.)
+ * - Private: everything else (e.g., "/dashboard")
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1) Always let static assets / Next internals through
+  // 1) Always let static assets & Next internals through
   const isStaticAsset = /\.[a-z0-9]+$/i.test(pathname);
   if (
     isStaticAsset ||
@@ -23,36 +23,37 @@ export function middleware(req: NextRequest) {
   }
 
   // 2) Public routes
+  const publicPaths = new Set<string>([
+    "/",
+    "/connect", // allow landing after login to avoid edge cookie race
+    "/terms",
+    "/privacy",
+    "/auth/sign-in",
+    "/auth/sign-up",
+    "/auth/verify/pending",
+    "/auth/callback",
+    "/api/ads/start",
+    "/api/ads/callback",
+  ]);
   const isAuthPath = pathname === "/auth" || pathname.startsWith("/auth/");
   const isAdsAuthApi =
     pathname.startsWith("/api/ads/start") ||
     pathname.startsWith("/api/ads/callback");
 
-  const isPublic =
-    pathname === "/" ||
-    pathname === "/terms" ||
-    pathname === "/privacy" ||
-    isAuthPath ||
-    isAdsAuthApi;
+  const isExplicitPublic =
+    publicPaths.has(pathname) || isAuthPath || isAdsAuthApi;
 
-  // 3) Robust Supabase session detection
+  // 3) Supabase session cookie (when present)
   const hasSession =
-    Boolean(req.cookies.get("sb-access-token")?.value) || // @supabase/ssr
-    Boolean(req.cookies.get("supabase-auth-token")?.value) || // auth-helpers legacy
-    Boolean(req.cookies.get("sb:token")?.value); // some setups
+    Boolean(req.cookies.get("sb-access-token")?.value) ||
+    Boolean(req.cookies.get("supabase-auth-token")?.value);
 
-  // 4) Protect private routes when not signed in
-  if (!isPublic && !hasSession) {
+  // 4) If private and no session -> redirect to sign-in
+  if (!isExplicitPublic && !hasSession) {
     const url = req.nextUrl.clone();
     url.pathname = "/auth/sign-in";
     url.searchParams.set("redirectedFrom", pathname);
     return NextResponse.redirect(url);
-  }
-
-  // 5) If Ads just connected, let them into /dashboard even if redirect chain continues
-  const adsConnected = req.cookies.get("ads_connected")?.value === "1";
-  if (pathname.startsWith("/dashboard") && adsConnected) {
-    return NextResponse.next();
   }
 
   return NextResponse.next();
