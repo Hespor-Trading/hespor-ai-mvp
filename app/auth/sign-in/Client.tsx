@@ -2,43 +2,61 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { toast } from "sonner";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import LegalModal from "@/components/LegalModal";
 
-function Inner() {
+const SignUpSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Min 8 characters").regex(/[A-Z]/, "Include at least one uppercase letter"),
+});
+
+export default function Client() {
   const supabase = createClientComponentClient();
   const router = useRouter();
-  const sp = useSearchParams();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [openLegal, setOpenLegal] = useState(false);
+  const [agree, setAgree] = useState(false);
+  const [form, setForm] = useState<{ email: string; password: string }>({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
-  const next = sp.get("next") || "/connect";
-  const verified = sp.get("verified");
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
+    setForm((s) => ({ ...s, [k]: v }));
+  }
 
-  useEffect(() => {
-    if (verified === "1") toast.success("Email verified. You can sign in now.");
-  }, [verified]);
-
-  async function handleSignIn(e: React.FormEvent) {
+  async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
+    const parsed = SignUpSchema.safeParse(form);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0].message);
+      return;
+    }
+    if (!agree) {
+      toast.error("You must agree to the Terms & Privacy.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+      const emailRedirectTo = `${appUrl}/auth/sign-in?verified=1`;
+
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { emailRedirectTo },
+      });
+
       if (error) {
-        // Friendly errors
-        if (error.message.toLowerCase().includes("email not confirmed")) {
-          toast.error("Please verify your email first.");
-        } else {
-          toast.error("Email or password is incorrect.");
-        }
+        toast.error(error.message);
         return;
       }
-      // success → go to /connect (or ?next)
-      router.replace(next);
+
+      toast.success("Verification email sent. Please check your inbox.");
+      router.replace("/auth/sign-in");
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -53,19 +71,19 @@ function Inner() {
           <Image src="/hespor-logo.png" alt="Hespor" width={40} height={40} />
           <span className="ml-2 text-xl font-semibold">Hespor</span>
         </div>
-        <h1 className="text-lg font-semibold text-center mb-6">Sign in</h1>
+        <h1 className="text-lg font-semibold text-center mb-6">Create your account</h1>
 
-        <form onSubmit={handleSignIn} className="space-y-4">
+        <form onSubmit={handleSignUp} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input
               className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
               type="email"
               inputMode="email"
               autoComplete="email"
               placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
@@ -74,46 +92,38 @@ function Inner() {
             <label className="block text-sm font-medium mb-1">Password</label>
             <input
               className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
               type="password"
-              autoComplete="current-password"
-              placeholder="********"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              placeholder="At least 8 chars with 1 uppercase"
               required
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+            I agree to the{" "}
+            <Link href="/legal/terms" className="underline">Terms</Link> and{" "}
+            <Link href="/legal/privacy" className="underline">Privacy</Link>.
+          </label>
 
           <button
             type="submit"
             disabled={loading}
             className="w-full rounded-xl bg-emerald-600 text-white px-4 py-3 font-medium hover:opacity-90 disabled:opacity-60"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Creating…" : "Create account"}
           </button>
 
-          <div className="flex items-center justify-between text-sm">
-            <Link href="/auth/reset" className="underline">Forgot password?</Link>
-            <div className="space-x-2">
-              <Link href="/legal/terms" className="underline">Terms</Link>
-              <span>·</span>
-              <Link href="/legal/privacy" className="underline">Privacy</Link>
-            </div>
-          </div>
-
           <p className="text-center text-sm">
-            Don’t have an account?{" "}
-            <Link href="/auth/sign-up" className="underline">Create one</Link>
+            Already have an account?{" "}
+            <Link href="/auth/sign-in" className="underline">Sign in</Link>
           </p>
         </form>
       </div>
-    </div>
-  );
-}
 
-export default function SignInClient() {
-  return (
-    <Suspense>
-      <Inner />
-    </Suspense>
+      <LegalModal open={openLegal} setOpen={setOpenLegal} />
+    </div>
   );
 }
