@@ -2,13 +2,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
-import dynamic from "next/dynamic";
+import NextDynamic from "next/dynamic";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // keep your existing client UI (no changes needed inside)
-const ConnectClient = dynamic(() => import("./Client"), { ssr: false });
+const ConnectClient = NextDynamic(() => import("./Client"), { ssr: false });
 
 export default async function Page() {
   const cookieStore = cookies();
@@ -31,16 +31,16 @@ export default async function Page() {
     }
   );
 
-  // SERVER session check (looks at HTTP-only cookies)
+  // SERVER session check (uses HTTP-only cookies)
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   if (!session) {
-    // Not logged in -> go to sign-in with next=/connect
+    // Not logged in -> go to sign-in with next=/connect (sequence: Sign Up -> Sign In -> Connect)
     redirect(`/auth/sign-in?next=/connect`);
   }
 
-  // Logged in -> render your existing client UI
+  // Logged in -> render the Connect screen
   return <ConnectClient />;
 }
