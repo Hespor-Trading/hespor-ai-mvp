@@ -1,46 +1,40 @@
-// Protect /connect on the SERVER so there is no client-side loop.
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
-import NextDynamic from "next/dynamic";
+"use client";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import Link from "next/link";
 
-// keep your existing client UI (no changes needed inside)
-const ConnectClient = NextDynamic(() => import("./Client"), { ssr: false });
+export default function Client() {
+  return (
+    <main className="min-h-[60vh] flex items-center justify-center p-6">
+      <div className="w-full max-w-xl rounded-2xl shadow-md bg-white p-6 space-y-4">
+        <h1 className="text-2xl font-semibold">Connect your accounts</h1>
+        <p className="text-slate-600">
+          You’re signed in. Continue by connecting your required services.
+        </p>
 
-export default async function Page() {
-  const cookieStore = cookies();
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/connect/ads"
+            className="rounded-xl border px-4 py-3 text-center hover:bg-slate-50"
+          >
+            Ads API (required)
+          </Link>
+          <Link
+            href="/connect/sp"
+            className="rounded-xl border px-4 py-3 text-center hover:bg-slate-50"
+          >
+            SP API (optional)
+          </Link>
+        </div>
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          cookieStore.set(name, value, options);
-        },
-        remove(name: string, options: any) {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
-        },
-      },
-    }
+        <div className="pt-4 border-t">
+          <Link
+            href="/dashboard"
+            className="rounded-xl bg-emerald-600 text-white px-4 py-2 inline-block text-center hover:opacity-90"
+          >
+            Go to Dashboard
+          </Link>
+        </div>
+      </div>
+    </main>
   );
-
-  // SERVER session check (uses HTTP-only cookies)
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    // Not logged in -> go to sign-in with next=/connect (sequence: Sign Up -> Sign In -> Connect)
-    redirect(`/auth/sign-in?next=/connect`);
-  }
-
-  // Logged in -> render the Connect screen
-  return <ConnectClient />;
 }
