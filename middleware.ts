@@ -1,62 +1,57 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
-/**
- * Public: "/", "/connect", "/auth/*", "/terms", "/privacy", ads endpoints, and static assets
- * Private: everything else (e.g. "/dashboard")
- */
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+const PUBLIC_PATHS = new Set<string>([
+  "/",
+  "/auth/sign-in",
+  "/auth/callback",
+  "/auth/register",
+]);
 
-  // static & internals
-  const isStatic = /\.[a-z0-9]+$/i.test(pathname);
-  if (
-    isStatic ||
-    pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/robots.txt" ||
-    pathname === "/sitemap.xml"
-  ) {
-    return NextResponse.next();
-  }
+function isPublicPath(pathname: string) {
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  // allow static & api without auth loops
+  if (pathname.startsWith("/api/")) return true;
+  if (pathname.startsWith("/_next/")) return true;
+  if (pathname.startsWith("/favicon")) return true;
+  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|txt|xml|json)$/.test(pathname)) return true;
+  return false;
+}
 
-  // public routes
-  const publicPaths = new Set<string>([
-    "/",
-    "/connect",                // allow first hop after login
-    "/terms",
-    "/privacy",
-    "/auth/sign-in",
-    "/auth/sign-up",
-    "/auth/verify/pending",
-    "/auth/callback",
-    "/api/ads/start",
-    "/api/ads/callback",
-  ]);
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
 
-  const isAuth = pathname === "/auth" || pathname.startsWith("/auth/");
-  const isAds = pathname.startsWith("/api/ads/start") || pathname.startsWith("/api/ads/callback");
+  // try refresh session (important so cookies stay valid)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (publicPaths.has(pathname) || isAuth || isAds) {
-    return NextResponse.next();
-  }
+  const { pathname, search } = req.nextUrl;
+  const isPublic = isPublicPath(pathname);
 
-  // session cookie (when present)
-  const hasSession =
-    Boolean(req.cookies.get("sb-access-token")?.value) ||
-    Boolean(req.cookies.get("supabase-auth-token")?.value);
-
-  // block private pages without a session
-  if (!hasSession) {
+  // 1) If NOT logged in and route is protected → go to sign-in with "next"
+  if (!session && !isPublic) {
     const url = req.nextUrl.clone();
     url.pathname = "/auth/sign-in";
-    url.searchParams.set("redirectedFrom", pathname);
+    url.search = search ? `?next=${encodeURIComponent(pathname + search)}` : `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // 2) If logged in and on an auth page → send to /connect
+  if (session && pathname.startsWith("/auth")) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/connect";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  return res;
 }
 
+// apply to all routes except Next.js internal assets
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)|sitemap.xml|robots.txt).*)",
+  ],
 };
