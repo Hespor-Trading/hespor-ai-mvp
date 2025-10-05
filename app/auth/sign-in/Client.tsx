@@ -17,7 +17,6 @@ function Inner() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
-  const next = sp.get("next") || "/connect";
   const verified = sp.get("verified");
   const awaiting = sp.get("awaiting");
 
@@ -26,9 +25,7 @@ function Inner() {
       toast.success("Email verified. You can sign in now.");
     }
 
-    // ✅ Only show the “check your inbox” notice if BOTH:
-    //  - URL has ?awaiting=1 (sent after sign-up), AND
-    //  - sessionStorage flag is present (set on sign-up)
+    // Show “check inbox” ONLY right after Sign Up
     let shouldShowAwaiting = false;
     try {
       const flag = sessionStorage.getItem("hespor_awaiting_verification");
@@ -36,11 +33,9 @@ function Inner() {
       if (shouldShowAwaiting) {
         sessionStorage.removeItem("hespor_awaiting_verification");
       }
-    } catch {
-      // sessionStorage may not be accessible in some contexts; ignore
-    }
+    } catch {}
     if (shouldShowAwaiting) {
-      toast.message("Check your inbox for the verification email.", {
+      toast.message("Check your inbox to confirm your email.", {
         description: "Didn’t get it? Use Resend below.",
       });
     }
@@ -50,10 +45,7 @@ function Inner() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         const msg = error.message?.toLowerCase();
         if (msg.includes("email not confirmed")) {
@@ -63,7 +55,8 @@ function Inner() {
         }
         return;
       }
-      router.replace(next);
+      // ✅ Always land on /connect after a successful sign in
+      router.replace("/connect");
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -100,7 +93,8 @@ function Inner() {
     <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow">
         <div className="flex items-center justify-center mb-4">
-          <Image src="/hespor-logo.png" alt="Hespor" width={40} height={40} />
+          {/* Bigger logo */}
+          <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
         </div>
 
         <h1 className="text-lg font-semibold text-center mb-6">Sign in</h1>
