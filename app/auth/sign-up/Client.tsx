@@ -2,216 +2,237 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { toast } from "sonner";
 
-function Inner() {
+export default function SignUpClient() {
   const supabase = createClientComponentClient();
   const router = useRouter();
-  const sp = useSearchParams();
-  const next = sp.get("next") || "/connect";
 
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    brand: "",
-    email: "",
-    password: "",
-    confirm: "",
-    agree: false,
-  });
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [amazonBrand, setAmazonBrand] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value, type, checked } = e.target;
-    setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
-  }
-
-  async function signUp(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.agree) return alert("Please accept Terms & Privacy first.");
-    if (form.password !== form.confirm) return alert("Passwords do not match.");
+
+    if (!agree) {
+      toast.error("Please agree to the Terms & Privacy.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
 
     setLoading(true);
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
+    try {
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "";
 
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          first_name: form.firstName,
-          last_name: form.lastName,
-          amazon_brand: form.brand,
+      // Create user (Supabase sends verification email)
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${appUrl}/auth/sign-in?verified=1`,
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            business_name: businessName,
+            amazon_brand: amazonBrand,
+          },
         },
-        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
+      });
 
-    setLoading(false);
-    if (error) return alert(error.message);
+      if (error) {
+        toast.error(error.message);
+        setLoading(false);
+        return;
+      }
 
-    // redirect to verify email page
-    router.replace(`/auth/verify/pending?email=${encodeURIComponent(form.email)}`);
-  }
+      // Store/merge profile (non-blocking if table exists)
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: data.user.id,
+              email,
+              first_name: firstName,
+              last_name: lastName,
+              business_name: businessName,
+              amazon_brand: amazonBrand,
+            },
+            { onConflict: "id" }
+          );
+        if (profileError) console.warn("profiles upsert:", profileError.message);
+      }
 
-  async function signUpWithGoogle() {
-    setLoading(true);
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
-    if (error) {
+      // Fallback resend (non-blocking)
+      try {
+        await fetch("/api/auth/resend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+      } catch (err) {
+        console.warn("resend warn:", err);
+      }
+
+      // ✅ Only-show-once flag for the Sign In page
+      try {
+        sessionStorage.setItem("hespor_awaiting_verification", "1");
+      } catch {}
+
+      toast.success("Verification email sent. Please check your inbox.");
+      router.replace("/auth/sign-in?awaiting=1");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      alert(error.message);
     }
   }
 
   return (
-    <div className="min-h-screen w-full bg-emerald-600 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <div className="flex flex-col items-center gap-3 mb-6">
-          <div className="h-16 w-16 relative">
-            <Image
-              src="/hespor-logo.png"
-              alt="Hespor"
-              fill
-              sizes="64px"
-              priority
-              className="object-contain"
-            />
+    <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow">
+        <div className="flex items-center justify-center mb-4">
+          <Image src="/hespor-logo.png" alt="Hespor" width={40} height={40} />
+        </div>
+
+        <h1 className="text-lg font-semibold text-center mb-6">
+          Create your account
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">First name</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Last name</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <h1 className="text-xl font-semibold">Create your account</h1>
-          <p className="text-sm text-gray-600 text-center">
-            Sign up and we’ll email you a verification link.
-          </p>
-        </div>
 
-        <button
-          onClick={signUpWithGoogle}
-          disabled={loading}
-          className="w-full border rounded-md py-2 font-medium hover:bg-gray-50 transition"
-        >
-          Continue with Google
-        </button>
-
-        <div className="flex items-center gap-3 my-6">
-          <div className="h-px bg-gray-200 flex-1" />
-          <span className="text-xs text-gray-500">or</span>
-          <div className="h-px bg-gray-200 flex-1" />
-        </div>
-
-        <form onSubmit={signUp} className="space-y-4">
-          <div className="flex gap-2">
+          <div>
+            <label className="block text-sm font-medium mb-1">Business name</label>
             <input
-              type="text"
-              name="firstName"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
               required
-              value={form.firstName}
-              onChange={handleChange}
-              placeholder="First name"
-              className="w-1/2 rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
-            />
-            <input
-              type="text"
-              name="lastName"
-              required
-              value={form.lastName}
-              onChange={handleChange}
-              placeholder="Last name"
-              className="w-1/2 rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
-          <input
-            type="text"
-            name="brand"
-            required
-            value={form.brand}
-            onChange={handleChange}
-            placeholder="Amazon brand"
-            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
-          />
+          <div>
+            <label className="block text-sm font-medium mb-1">Amazon brand name</label>
+            <input
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              value={amazonBrand}
+              onChange={(e) => setAmazonBrand(e.target.value)}
+              required
+            />
+          </div>
 
-          <input
-            type="email"
-            name="email"
-            required
-            value={form.email}
-            onChange={handleChange}
-            placeholder="you@email.com"
-            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
-          />
+          <div>
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <input
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-          <input
-            type="password"
-            name="password"
-            required
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Password (min 6 chars)"
-            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Password</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                type="password"
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Confirm password
+              </label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Repeat password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
-          <input
-            type="password"
-            name="confirm"
-            required
-            value={form.confirm}
-            onChange={handleChange}
-            placeholder="Confirm password"
-            className="w-full rounded-md border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
-          />
-
-          <label className="flex items-start gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              name="agree"
-              checked={form.agree}
-              onChange={handleChange}
-              className="mt-1 accent-emerald-600"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
             />
-            <span>
-              I agree to the{" "}
-              <Link href="/legal/terms" className="text-emerald-700 font-medium" target="_blank">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/legal/privacy" className="text-emerald-700 font-medium" target="_blank">
-                Privacy Policy
-              </Link>
-              .
-            </span>
+            I agree to the{" "}
+            <Link href="/legal/terms" className="underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/legal/privacy" className="underline">
+              Privacy
+            </Link>
+            .
           </label>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-600 text-white rounded-md py-2 font-semibold hover:bg-emerald-700 transition"
+            className="w-full rounded-xl bg-emerald-600 text-white px-4 py-3 font-medium hover:opacity-90 disabled:opacity-60"
           >
-            {loading ? "Creating..." : "Create account"}
+            {loading ? "Creating…" : "Create account"}
           </button>
-        </form>
 
-        <p className="text-xs text-gray-600 mt-6 text-center">
-          Already have an account?{" "}
-          <Link className="text-emerald-700 font-medium" href="/auth/sign-in">
-            Sign in
-          </Link>
-        </p>
+          <p className="text-center text-sm">
+            Already have an account?{" "}
+            <Link href="/auth/sign-in" className="underline">
+              Sign in
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
-  );
-}
-
-export default function SignUpClient() {
-  return (
-    <Suspense>
-      <Inner />
-    </Suspense>
   );
 }
