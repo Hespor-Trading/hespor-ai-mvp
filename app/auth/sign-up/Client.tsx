@@ -40,7 +40,6 @@ export default function SignUpClient() {
         process.env.NEXT_PUBLIC_SITE_URL ||
         "";
 
-      // Create user (Supabase sends verification email)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -61,7 +60,6 @@ export default function SignUpClient() {
         return;
       }
 
-      // Store/merge profile (non-blocking if table exists)
       if (data.user) {
         const { error: profileError } = await supabase
           .from("profiles")
@@ -90,12 +88,15 @@ export default function SignUpClient() {
         console.warn("resend warn:", err);
       }
 
-      // ✅ Only-show-once flag for the Sign In page
+      // Mark that we just signed up (so Sign In can show the notice)
       try {
         sessionStorage.setItem("hespor_awaiting_verification", "1");
       } catch {}
 
+      // Show the notification immediately (now that Toaster is global)
       toast.success("Verification email sent. Please check your inbox.");
+
+      // Send them to Sign In
       router.replace("/auth/sign-in?awaiting=1");
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -108,7 +109,8 @@ export default function SignUpClient() {
     <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow">
         <div className="flex items-center justify-center mb-4">
-          <Image src="/hespor-logo.png" alt="Hespor" width={40} height={40} />
+          {/* Bigger logo */}
+          <Image src="/hespor-logo.png" alt="Hespor" width={80} height={80} priority />
         </div>
 
         <h1 className="text-lg font-semibold text-center mb-6">
