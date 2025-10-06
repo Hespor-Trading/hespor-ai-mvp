@@ -5,28 +5,27 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 type LwaTokenResponse = {
   access_token: string;
   refresh_token?: string;
-  token_type: "bearer" | string;
+  token_type: string;
   expires_in: number;
 };
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const error = url.searchParams.get("error");
+  const err = url.searchParams.get("error");
 
-  // If Amazon returns an error (e.g., user declined)
-  if (!code || error) {
+  if (!code || err) {
     return NextResponse.redirect(new URL("/connect?error=amazon_oauth", req.url));
   }
 
-  // ---- 1) Exchange code for tokens (Login With Amazon) ----
+  // 1) LWA token exchange
   const client_id =
     process.env.ADS_LWA_CLIENT_ID ||
-    process.env.NEXT_PUBLIC_ADS_CLIENT_ID || ""; // fallback
+    process.env.NEXT_PUBLIC_ADS_CLIENT_ID || "";
 
   const client_secret =
-    process.env.SP_LWA_CLIENT_SECRET ||
-    process.env.ADS_LWA_CLIENT_SECRET || ""; // support either name you may have
+    process.env.ADS_LWA_CLIENT_SECRET ||
+    process.env.SP_LWA_CLIENT_SECRET || "";
 
   const redirect_uri =
     process.env.ADS_REDIRECT_URI ||
@@ -34,10 +33,7 @@ export async function GET(req: Request) {
     "https://app.hespor.com/api/ads/callback";
 
   if (!client_id || !client_secret) {
-    // Missing envs – bail gracefully
-    return NextResponse.redirect(
-      new URL("/connect?error=missing_ads_env", req.url)
-    );
+    return NextResponse.redirect(new URL("/connect?error=missing_ads_env", req.url));
   }
 
   const body = new URLSearchParams({
@@ -55,33 +51,22 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
       body,
     });
-    if (!r.ok) {
-      const msg = await r.text();
-      throw new Error(`LWA token exchange failed: ${msg}`);
-    }
+    if (!r.ok) throw new Error(await r.text());
     token = (await r.json()) as LwaTokenResponse;
   } catch (e) {
-    console.error(e);
-    return NextResponse.redirect(
-      new URL("/connect?error=token_exchange_failed", req.url)
-    );
+    console.error("LWA token exchange failed:", e);
+    return NextResponse.redirect(new URL("/connect?error=token_exchange_failed", req.url));
   }
 
-  // ---- 2) Fetch one advertising profile (to know which profile_id to store) ----
-  const ADS_API_BASE =
-    process.env.ADS_API_BASE || "https://advertising-api.amazon.com";
-  // If you need a region, set AMAZON_ADS_REGION env and route to the right host.
-  // This generic endpoint lists profiles accessible by the token:
-  // https://advertising-api.amazon.com/v2/profiles
+  // 2) Try to fetch first profile id (non-fatal if it fails)
+  const ADS_API_BASE = process.env.ADS_API_BASE || "https://advertising-api.amazon.com";
   let profileId = "";
   try {
     const rp = await fetch(`${ADS_API_BASE}/v2/profiles`, {
-      method: "GET",
       headers: {
-        "Authorization": `Bearer ${token.access_token}`,
+        Authorization: `Bearer ${token.access_token}`,
         "Amazon-Advertising-API-ClientId": client_id,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+        Accept: "application/json",
       },
     });
     if (rp.ok) {
@@ -89,40 +74,33 @@ export async function GET(req: Request) {
       profileId = profiles?.[0]?.profileId?.toString() || "";
     }
   } catch (e) {
-    // Not fatal; continue without a profile id
-    console.warn("Fetching profiles failed:", e);
+    console.warn("Fetching profiles failed (non-fatal):", e);
   }
 
-  // ---- 3) Upsert into Supabase ----
+  // 3) Save to Supabase (force execution + catch DB errors)
   const supabase = createRouteHandlerClient({ cookies });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    // Not signed in – send them to sign-in (preserving that they just connected Ads)
-    return NextResponse.redirect(
-      new URL("/auth/sign-in?next=/connect", req.url)
-    );
+    return NextResponse.redirect(new URL("/auth/sign-in?next=/connect", req.url));
   }
 
-  // Your table columns from the screenshot: user_id (uuid), brand (text), profile_id (text), access_token (text)
-  // We’ll upsert by user_id. (RLS is disabled per your screenshot.)
-  try {
-    await supabase
-      .from("amazon_ads_credentials")
-      .upsert(
-        {
-          user_id: user.id,
-          profile_id: profileId || null,
-          access_token: token.access_token,
-          // NOTE: if you later add a refresh_token column, also store token.refresh_token here.
-          // brand is unknown at connect-time, so we leave it null.
-        },
-        { onConflict: "user_id" }
-      );
-  } catch (e) {
-    console.error("Supabase upsert error:", e);
+  const { error: upsertError } = await supabase
+    .from("amazon_ads_credentials")
+    .upsert(
+      {
+        user_id: user.id,
+        profile_id: profileId || null,
+        access_token: token.access_token,
+      },
+      { onConflict: "user_id" }
+    )
+    .select(); // <- ensure statement executes and returns an error if any
+
+  if (upsertError) {
+    console.error("Supabase upsert error:", upsertError);
     return NextResponse.redirect(new URL("/connect?error=save_failed", req.url));
   }
 
-  // ---- 4) Redirect to dashboard (as requested) ----
+  // 4) Done → dashboard
   return NextResponse.redirect(new URL("/dashboard", req.url));
 }
