@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
 
 type LwaTokenResponse = {
   access_token: string;
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/connect?error=token_exchange_failed", req.url));
   }
 
-  // 2) Try to fetch first profile id (non-fatal if it fails)
+  // 2) Try to fetch first profile id (non-fatal)
   const ADS_API_BASE = process.env.ADS_API_BASE || "https://advertising-api.amazon.com";
   let profileId = "";
   try {
@@ -77,30 +78,35 @@ export async function GET(req: Request) {
     console.warn("Fetching profiles failed (non-fatal):", e);
   }
 
-  // 3) Save to Supabase (force execution + catch DB errors)
-  const supabase = createRouteHandlerClient({ cookies });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  // 3) Identify the signed-in user via cookie auth
+  const userClient = createRouteHandlerClient({ cookies });
+  const { data: { user }, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !user) {
     return NextResponse.redirect(new URL("/auth/sign-in?next=/connect", req.url));
   }
 
-  const { error: upsertError } = await supabase
+  // 4) Use ADMIN client for the DB write (guaranteed upsert)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+  const { error: upsertError } = await admin
     .from("amazon_ads_credentials")
     .upsert(
       {
-        user_id: user.id,
-        profile_id: profileId || null,
-        access_token: token.access_token,
+        user_id: user.id,                   // uuid
+        profile_id: profileId || null,      // text
+        access_token: token.access_token,   // text
+        // brand: null // leave as-is; your column is nullable
       },
       { onConflict: "user_id" }
-    )
-    .select(); // <- ensure statement executes and returns an error if any
+    );
 
   if (upsertError) {
     console.error("Supabase upsert error:", upsertError);
     return NextResponse.redirect(new URL("/connect?error=save_failed", req.url));
   }
 
-  // 4) Done → dashboard
+  // 5) Redirect to dashboard
   return NextResponse.redirect(new URL("/dashboard", req.url));
 }
