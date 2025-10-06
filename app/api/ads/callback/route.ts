@@ -1,3 +1,4 @@
+// app/api/ads/callback/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -5,16 +6,15 @@ import { createClient } from "@supabase/supabase-js";
 
 type LwaTokenResponse = {
   access_token: string;
-  refresh_token?: string;
+  refresh_token?: string | null;
   token_type: string;
-  expires_in: number;
+  expires_in: number | null;
 };
 
-// helper: bounce to /connect with an error (and optional why=… detail)
 function back(reqUrl: string, reason: string, why?: string) {
   const u = new URL("/connect", reqUrl);
   u.searchParams.set("error", reason);
-  if (why) u.searchParams.set("why", why);
+  if (why) u.searchParams.set("why", encodeURIComponent(why));
   return NextResponse.redirect(u);
 }
 
@@ -22,27 +22,20 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const err = url.searchParams.get("error");
-
   if (err) return back(req.url, `amazon_${err}`);
   if (!code) return back(req.url, "missing_code");
 
-  // 1) Exchange auth code for an LWA access token
+  // --- 1) Exchange auth code for LWA token ---
   const client_id =
-    process.env.ADS_LWA_CLIENT_ID ||
-    process.env.NEXT_PUBLIC_ADS_CLIENT_ID ||
-    "";
+    process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_CLIENT_ID || "";
   const client_secret =
-    process.env.ADS_LWA_CLIENT_SECRET ||
-    process.env.SP_LWA_CLIENT_SECRET ||
-    "";
+    process.env.ADS_LWA_CLIENT_SECRET || process.env.SP_LWA_CLIENT_SECRET || "";
   const redirect_uri =
     process.env.ADS_REDIRECT_URI ||
     process.env.NEXT_PUBLIC_ADS_REDIRECT_URI ||
     "https://app.hespor.com/api/ads/callback";
 
-  if (!client_id || !client_secret) {
-    return back(req.url, "missing_ads_env", "client_id/client_secret");
-  }
+  if (!client_id || !client_secret) return back(req.url, "missing_ads_env");
 
   let token: LwaTokenResponse;
   try {
@@ -61,10 +54,10 @@ export async function GET(req: Request) {
     token = (await r.json()) as LwaTokenResponse;
   } catch (e: any) {
     console.error("token_exchange_failed:", e);
-    return back(req.url, "token_exchange_failed");
+    return back(req.url, "token_exchange_failed", String(e?.message ?? e));
   }
 
-  // 2) Best-effort: fetch first Ads profile id (non-fatal)
+  // --- 2) Best-effort: fetch first profile id (not required to save) ---
   const ADS_API_BASE =
     process.env.ADS_API_BASE || "https://advertising-api.amazon.com";
   let profileId = "";
@@ -84,67 +77,62 @@ export async function GET(req: Request) {
     console.warn("profiles_fetch_warn:", e);
   }
 
-  // 3) Identify the signed-in Hespor user (via cookie session)
+  // --- 3) Identify signed-in Hespor user from auth cookie ---
   const authed = createRouteHandlerClient({ cookies });
   const {
     data: { user },
   } = await authed.auth.getUser();
   if (!user) return back(req.url, "no_user");
 
-  // 4) Use SERVICE ROLE to store credentials (bypasses RLS)
+  // --- 4) Service-role client (admin write) ---
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  if (!supabaseUrl || !serviceKey) {
-    return back(req.url, "missing_service_role", "SUPABASE_SERVICE_ROLE_KEY/URL");
-  }
+  if (!supabaseUrl || !serviceKey) return back(req.url, "missing_service_role");
+
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 
-  // 4a) Compute a **non-null** brand to satisfy NOT NULL constraint
-  let brand = "Unknown Brand";
+  // --- 5) Fill 'brand' for NOT NULL column (best-effort) ---
+  let brand = "";
   try {
-    const { data: p } = await admin
+    const { data: prof } = await admin
       .from("profiles")
-      .select("amazon_brand, brand, business_name")
+      .select("amazon_brand,business_name")
       .eq("id", user.id)
-      .maybeSingle();
-
-    const fromProfile =
-      (p?.amazon_brand as string) ||
-      (p?.brand as string) ||
-      (p?.business_name as string) ||
-      "";
-
-    const trimmed = (fromProfile || "").trim();
-    if (trimmed.length > 0) brand = trimmed;
+      .single();
+    brand = (prof?.amazon_brand || prof?.business_name || "").toString();
   } catch {
-    // ignore; default used
+    // leave empty string if not found; satisfies NOT NULL if your schema requires it
   }
 
-  // 4b) UPSERT credentials (user_id is unique)
+  // --- 6) Compute expires_at from expires_in (ISO string for timestamptz) ---
+  const seconds = Number(token.expires_in ?? 0);
+  const expiresAtIso = seconds > 0
+    ? new Date(Date.now() + seconds * 1000).toISOString()
+    : new Date(Date.now() + 3600 * 1000).toISOString(); // fallback 1h
+
+  // --- 7) UPSERT credentials (now includes expires_at & refresh_token) ---
   const row = {
     user_id: user.id,
+    brand,                                // ensure not-null brand column is satisfied
     profile_id: profileId || null,
     access_token: token.access_token,
-    brand, // <- guaranteed non-null
+    refresh_token: token.refresh_token ?? null,
+    expires_at: expiresAtIso,
   };
 
-  const { error: upsertError } = await admin
+  const { error: upsertErr } = await admin
     .from("amazon_ads_credentials")
     .upsert(row, { onConflict: "user_id" })
-    .select(); // force statement execution & surface errors
+    .select(); // force execution and surface DB errors
 
-  if (upsertError) {
-    console.error("upsert_failed:", upsertError);
-    return back(
-      req.url,
-      "save_failed",
-      `${upsertError.code || ""} ${upsertError.message || ""}`.trim()
-    );
+  if (upsertErr) {
+    console.error("save_failed:", upsertErr);
+    return back(req.url, "save_failed", upsertErr.message);
   }
 
-  // 5) Success → dashboard
+  // --- 8) Success → dashboard ---
   return NextResponse.redirect(new URL("/dashboard", req.url));
 }
