@@ -10,9 +10,11 @@ type LwaTokenResponse = {
   expires_in: number;
 };
 
-function back(reqUrl: string, reason: string) {
+// small helper to always point back to /connect with a short reason + hint
+function back(reqUrl: string, reason: string, why?: string) {
   const u = new URL("/connect", reqUrl);
   u.searchParams.set("error", reason);
+  if (why) u.searchParams.set("why", why.slice(0, 180)); // keep it short
   return NextResponse.redirect(u);
 }
 
@@ -24,7 +26,7 @@ export async function GET(req: Request) {
   if (err) return back(req.url, `amazon_${err}`);
   if (!code) return back(req.url, "missing_code");
 
-  // 1) LWA token exchange
+  // 1) Exchange auth code → LWA token
   const client_id =
     process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_CLIENT_ID || "";
   const client_secret =
@@ -34,7 +36,9 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_ADS_REDIRECT_URI ||
     "https://app.hespor.com/api/ads/callback";
 
-  if (!client_id || !client_secret) return back(req.url, "missing_ads_env");
+  if (!client_id || !client_secret) {
+    return back(req.url, "missing_ads_env", "client_id/client_secret not set");
+  }
 
   let token: LwaTokenResponse;
   try {
@@ -48,15 +52,19 @@ export async function GET(req: Request) {
         client_secret,
         redirect_uri,
       }),
+      cache: "no-store",
     });
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`HTTP ${r.status} ${r.statusText} – ${body}`);
+    }
     token = (await r.json()) as LwaTokenResponse;
-  } catch (e) {
+  } catch (e: any) {
     console.error("token_exchange_failed:", e);
-    return back(req.url, "token_exchange_failed");
+    return back(req.url, "token_exchange_failed", String(e?.message || e));
   }
 
-  // 2) (Optional) try to read a profile id
+  // 2) Try to read a profile id (non-fatal)
   const ADS_API_BASE =
     process.env.ADS_API_BASE || "https://advertising-api.amazon.com";
   let profileId = "";
@@ -67,6 +75,7 @@ export async function GET(req: Request) {
         "Amazon-Advertising-API-ClientId": client_id,
         Accept: "application/json",
       },
+      cache: "no-store",
     });
     if (rp.ok) {
       const profiles = (await rp.json()) as Array<{ profileId?: number | string }>;
@@ -76,40 +85,49 @@ export async function GET(req: Request) {
     console.warn("profiles_fetch_warn:", e);
   }
 
-  // 3) Identify signed-in Hespor user from cookie session
+  // 3) Current signed-in Hespor user
   const authed = createRouteHandlerClient({ cookies });
-  const {
-    data: { user },
-  } = await authed.auth.getUser();
-  if (!user) return back(req.url, "no_user");
+  const { data: { user }, error: userErr } = await authed.auth.getUser();
+  if (userErr) {
+    console.error("getUser error:", userErr);
+  }
+  if (!user) return back(req.url, "no_user", "no Supabase session at callback");
 
-  // 4) Save credentials with SERVICE ROLE (admin)
+  // 4) Admin client (SERVICE ROLE) – write credential
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  if (!supabaseUrl || !serviceKey) return back(req.url, "missing_service_role");
+  if (!supabaseUrl || !serviceKey) {
+    return back(req.url, "missing_service_role", "check SUPABASE_* envs");
+  }
 
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 
+  // NOTE: your table has UNIQUE(user_id) now.
   const row = {
     user_id: user.id,
     profile_id: profileId || null,
     access_token: token.access_token,
   };
 
-  // The table now has a UNIQUE(user_id). Use upsert and force execution with .select()
+  // Force execution and surface any DB error text in `why`
   const { error: upsertError } = await admin
     .from("amazon_ads_credentials")
     .upsert(row, { onConflict: "user_id" })
-    .select(); // ensures we surface any DB error
+    .select(); // forces execution
 
   if (upsertError) {
     console.error("upsert_failed:", upsertError);
-    return back(req.url, "save_failed");
+    return back(
+      req.url,
+      "save_failed",
+      `${upsertError.code || ""} ${upsertError.message || "DB upsert failed"}`
+    );
   }
 
-  // 5) Success → dashboard
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+  // 5) Done → dashboard
+  const next = new URL("/dashboard", req.url);
+  return NextResponse.redirect(next);
 }
