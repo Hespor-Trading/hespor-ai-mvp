@@ -1,156 +1,117 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 
-/**
- * Emerald theme to match auth pages; buttons launch OAuth consent pages.
- */
-export default function Client() {
-  const [loading, setLoading] = useState<"ads" | "sp" | null>(null);
+export default function ConnectClient() {
+  const [loadingAds, setLoadingAds] = useState(false);
+  const [loadingSp, setLoadingSp] = useState(false);
 
-  // ----- Amazon Ads (Login With Amazon) OAuth URL -----
-  const adsUrl = useMemo(() => {
-    const preset = (process.env.NEXT_PUBLIC_ADS_OAUTH_URL as string) || "";
-    if (preset) return preset;
+  // Read the URLs from env (already configured on your side)
+  const adsUrl = useMemo(
+    () =>
+      process.env.NEXT_PUBLIC_ADS_OAUTH_URL ||
+      process.env.NEXT_PUBLIC_AMAZON_ADS_REDIRECT ||
+      "",
+    []
+  );
 
-    const clientId =
-      (process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID as string) ||
-      (process.env.ADS_LWA_CLIENT_ID as string) ||
-      "";
-    const redirect =
-      (process.env.NEXT_PUBLIC_AMAZON_ADS_REDIRECT as string) ||
-      (process.env.AMZN_ADS_REDIRECT as string) ||
-      "";
-    const scope = "advertising::campaign_management";
-    const state = Math.random().toString(36).slice(2);
-    const base = "https://www.amazon.com/ap/oa"; // adjust to region if needed
+  const spUrl = useMemo(
+    () =>
+      process.env.NEXT_PUBLIC_SP_OAUTH_URL ||
+      process.env.NEXT_PUBLIC_SP_REDIRECT ||
+      process.env.SP_LWA_REDIRECT ||
+      "",
+    []
+  );
 
-    if (!clientId || !redirect) return "";
-
-    return (
-      `${base}?client_id=${encodeURIComponent(clientId)}` +
-      `&scope=${encodeURIComponent(scope)}` +
-      `&response_type=code` +
-      `&redirect_uri=${encodeURIComponent(redirect)}` +
-      `&state=${encodeURIComponent(state)}`
-    );
-  }, []);
-
-  // ----- SP-API OAuth URL -----
-  const spUrl = useMemo(() => {
-    const preset = (process.env.NEXT_PUBLIC_SP_OAUTH_URL as string) || "";
-    if (preset) return preset;
-
-    const appId =
-      (process.env.NEXT_PUBLIC_SP_APP_ID as string) ||
-      (process.env.SP_APP_ID as string) ||
-      "";
-    const region = ((process.env.SP_REGION as string) || "NA").toLowerCase();
-
-    if (!appId) return "";
-
-    let host = "sellercentral.amazon.com"; // NA default
-    if (region.startsWith("eu")) host = "sellercentral-europe.amazon.com";
-    if (region.startsWith("fe") || region.includes("jp")) host = "sellercentral.amazon.co.jp";
-
-    const state = Math.random().toString(36).slice(2);
-
-    return `https://${host}/apps/authorize/consent?application_id=${encodeURIComponent(
-      appId
-    )}&state=${encodeURIComponent(state)}&version=beta`;
-  }, []);
-
-  const openAds = useCallback(() => {
+  const goAds = () => {
     if (!adsUrl) return;
-    setLoading("ads");
-    window.location.assign(adsUrl);
-  }, [adsUrl]);
+    setLoadingAds(true);
+    // Goes to Amazon OAuth "Allow" screen for Ads
+    window.location.href = adsUrl;
+  };
 
-  const openSp = useCallback(() => {
+  const goSp = () => {
     if (!spUrl) return;
-    setLoading("sp");
-    window.location.assign(spUrl);
-  }, [spUrl]);
+    setLoadingSp(true);
+    // Goes to Amazon OAuth "Allow" screen for SP-API (optional)
+    window.location.href = spUrl;
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-emerald-200 to-emerald-600 text-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl p-6 md:p-8">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold">Connect your accounts</h1>
-          <p className="text-slate-600 mt-1">Step 3 of 4 — connect required services to continue.</p>
+    <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow space-y-6">
+        <header className="text-center space-y-1">
+          <h1 className="text-xl font-semibold">Connect your Amazon data</h1>
+          <p className="text-sm text-gray-600">
+            Choose what to connect. You can add Inventory &amp; Sales later.
+          </p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Ads API — required */}
-          <div className="rounded-xl border p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Amazon Ads API</h2>
-              <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Required
-              </span>
+        {/* Amazon Ads (Required) */}
+        <section className="rounded-xl border p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-medium">Advertising Data (Amazon Ads)</h2>
+                <span className="text-xs rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">
+                  Required
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Connect your Amazon Ads account so Hespor can analyze campaigns and performance.
+              </p>
             </div>
-            <p className="text-slate-600 mt-2">
-              Authorize with Amazon so we can read advertising data and manage campaigns as allowed.
-            </p>
 
             <button
-              onClick={openAds}
-              disabled={!adsUrl || loading === "ads"}
-              className="mt-4 w-full rounded-xl bg-emerald-600 text-white px-4 py-3 font-medium hover:opacity-90 disabled:opacity-60"
+              onClick={goAds}
+              disabled={!adsUrl || loadingAds}
+              className="rounded-xl bg-emerald-600 text-white px-4 py-2 font-medium hover:opacity-90 disabled:opacity-60 whitespace-nowrap"
             >
-              {loading === "ads" ? "Opening Amazon…" : "Connect Amazon Ads"}
+              {loadingAds ? "Opening…" : "Connect Ads"}
             </button>
-
-            {!adsUrl && (
-              <p className="text-xs text-red-600 mt-2">
-                Missing NEXT_PUBLIC_ADS_LWA_CLIENT_ID or NEXT_PUBLIC_AMAZON_ADS_REDIRECT.
-              </p>
-            )}
           </div>
-
-          {/* SP-API — optional */}
-          <div className="rounded-xl border p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Amazon SP-API</h2>
-              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700 border">
-                Optional
-              </span>
-            </div>
-            <p className="text-slate-600 mt-2">
-              Connect Selling Partner API for catalog, orders, and other store data.
+          {!adsUrl && (
+            <p className="text-xs text-amber-600 mt-2">
+              OAuth URL is not configured in env. Set <code>NEXT_PUBLIC_ADS_OAUTH_URL</code>.
             </p>
+          )}
+        </section>
+
+        {/* SP-API (Optional) */}
+        <section className="rounded-xl border p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-medium">Inventory &amp; Sales Data (Amazon Seller)</h2>
+                <span className="text-xs rounded-full bg-gray-100 text-gray-700 px-2 py-0.5">
+                  Optional
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Connect Seller (SP-API) to sync listings, orders, and inventory for deeper insights.
+              </p>
+            </div>
 
             <button
-              onClick={openSp}
-              disabled={!spUrl || loading === "sp"}
-              className="mt-4 w-full rounded-xl bg-white text-slate-900 border px-4 py-3 font-medium hover:bg-slate-50 disabled:opacity-60"
+              onClick={goSp}
+              disabled={!spUrl || loadingSp}
+              className="rounded-xl bg-emerald-600 text-white px-4 py-2 font-medium hover:opacity-90 disabled:opacity-60 whitespace-nowrap"
             >
-              {loading === "sp" ? "Opening Seller Central…" : "Connect SP-API"}
+              {loadingSp ? "Opening…" : "Connect Seller"}
             </button>
-
-            {!spUrl && (
-              <p className="text-xs text-red-600 mt-2">
-                Missing NEXT_PUBLIC_SP_APP_ID (and optional SP_REGION).
-              </p>
-            )}
           </div>
-        </div>
+          {!spUrl && (
+            <p className="text-xs text-amber-600 mt-2">
+              OAuth URL is not configured in env. Set <code>NEXT_PUBLIC_SP_OAUTH_URL</code>.
+            </p>
+          )}
+        </section>
 
-        <div className="my-6 h-px bg-slate-100" />
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div>
-            <p className="text-slate-700 font-medium">All set?</p>
-            <p className="text-slate-500 text-sm">You can go to your dashboard any time.</p>
-          </div>
-          <Link
-            href="/dashboard"
-            className="rounded-xl bg-emerald-600 text-white px-5 py-3 font-medium hover:opacity-90"
-          >
-            Go to Dashboard
-          </Link>
-        </div>
+        <p className="text-xs text-center text-gray-500">
+          After you click <b>Allow</b> on Amazon, you’ll be redirected back to Hespor.
+          Your data will begin syncing and you’ll be taken to your dashboard.
+        </p>
       </div>
     </div>
   );
