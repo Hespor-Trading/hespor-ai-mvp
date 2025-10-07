@@ -1,112 +1,56 @@
-import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabaseServer";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function weekAgoISO() {
-  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-}
+/**
+ * Very light “talk to your data” endpoint:
+ * - pulls /api/ads/summary and /api/ads/top
+ * - returns a concise, deterministic answer without long prompts
+ * You can swap to a streaming OpenAI call later—UI can stay the same.
+ */
+export async function POST(req: NextRequest) {
+  const { question, range = "30d" } = await req.json().catch(() => ({ question: "", range: "30d" }));
 
-export async function POST(req: Request) {
-  try {
-    const supabase = getSupabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  // fetch from our own APIs so auth context (cookies) applies
+  const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+  const [summaryRes, topRes] = await Promise.all([
+    fetch(`${base}/api/ads/summary?range=${encodeURIComponent(range)}`, { headers: { cookie: req.headers.get("cookie") || "" } }),
+    fetch(`${base}/api/ads/top?range=${encodeURIComponent(range)}&limit=15`, { headers: { cookie: req.headers.get("cookie") || "" } }),
+  ]);
 
-    if (!user) {
-      return NextResponse.json(
-        { answer: "Please sign in to use the assistant." },
-        { status: 401 }
-      );
-    }
+  const summary = await summaryRes.json().catch(() => ({}));
+  const top = await topRes.json().catch(() => ({ items: [] as any[] }));
 
-    // Identify plan (treat missing col as "free")
-    let plan: string | null = null;
-    {
-      const { data } = await supabaseAdmin
-        .from("profiles")
-        .select("plan")
-        .eq("id", user.id)
-        .single();
-      plan = (data as any)?.plan ?? null;
-    }
+  // Build a short, helpful text (no external LLM dependency needed right now)
+  const lines: string[] = [];
+  const spend = summary?.spend ?? 0;
+  const sales = summary?.sales ?? 0;
+  const orders = summary?.orders ?? 0;
+  const acos = summary?.acos;
 
-    const isPro = plan === "pro";
+  lines.push(`Last ${range}: Spend $${(+spend).toFixed(2)}, Sales $${(+sales).toFixed(2)}, Orders ${orders}${acos != null ? `, ACOS ${acos}%` : ""}.`);
 
-    if (!isPro) {
-      // Count usages in last 7d
-      const { count, error: cntErr } = await supabaseAdmin
-        .from("chat_usage")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .gte("ts", weekAgoISO());
+  if (top.items?.length) {
+    const best = [...top.items]
+      .filter((x: any) => x.sales > 0)
+      .sort((a: any, b: any) => (a.acos ?? 999) - (b.acos ?? 999))
+      .slice(0, 3)
+      .map((x: any) => `${x.term} (ACOS ${x.acos ?? "–"}%, Sales $${x.sales.toFixed(2)})`);
 
-      if (cntErr) {
-        // Don’t hard-fail UX on metering issues; log and proceed with a soft cap
-        console.error("chat_usage count error:", cntErr);
-      }
+    const burners = [...top.items]
+      .filter((x: any) => (x.sales ?? 0) === 0 && (x.cost ?? 0) > 0)
+      .slice(0, 3)
+      .map((x: any) => `${x.term} ($${x.cost.toFixed(2)} spend, 0 sales)`);
 
-      if ((count ?? 0) >= 10) {
-        return NextResponse.json(
-          {
-            answer:
-              "You’ve reached the Free plan limit of 10 questions this week. Upgrade to Pro for unlimited questions.",
-            limit: 10,
-            window: "7d",
-          },
-          { status: 429 }
-        );
-      }
-    }
-
-    const { brand, query } = await req.json();
-
-    // Pull a simple snapshot first (works even with empty data)
-    const base =
-      process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
-    const summaryRes = await fetch(
-      `${base}/api/ads/summary?brand=${encodeURIComponent(
-        brand || "default"
-      )}&range=30d`,
-      { cache: "no-store" }
-    ).catch(() => null);
-
-    const summary = summaryRes && (await summaryRes.json().catch(() => null));
-
-    // Compose answer deterministically (you can swap to OpenAI later if you want)
-    const answer = (() => {
-      if (!summary || (!summary.sales && !summary.spend)) {
-        return "I couldn’t find recent ads data for your account. If this is a new or inactive advertiser, connect a seller account with campaigns.";
-      }
-      const bits = [
-        `Sales (30d): $${(summary.sales || 0).toLocaleString()}`,
-        `Spend (30d): $${(summary.spend || 0).toLocaleString()}`,
-        `ACOS (30d): ${summary.acos == null ? "—" : summary.acos + "%"}`,
-      ];
-      return `Here’s a quick snapshot for the last 30 days:\n• ${bits.join(
-        "\n• "
-      )}\nAsk me for campaigns or keywords next.`;
-    })();
-
-    // Record usage (only for Free; Pro is unmetered)
-    if (!isPro) {
-      await supabaseAdmin.from("chat_usage").insert({
-        user_id: user.id,
-        ts: new Date().toISOString(),
-        brand: brand || "default",
-        question: String(query || ""),
-      });
-    }
-
-    return NextResponse.json({ answer });
-  } catch (e: any) {
-    console.error("AI route error:", e);
-    return NextResponse.json(
-      { answer: "Sorry, I hit an error handling that request." },
-      { status: 200 }
-    );
+    if (best.length) lines.push(`Top efficient terms: ${best.join("; ")}.`);
+    if (burners.length) lines.push(`Potential negatives: ${burners.join("; ")}.`);
+  } else {
+    lines.push("No search-term rows yet. Click Sync on the dashboard to load fresh data.");
   }
+
+  // If user asked something specific, append a short note (still deterministic)
+  if (question) lines.push(`Q: ${question.trim()}`);
+
+  return NextResponse.json({ answer: lines.join(" ") });
 }
