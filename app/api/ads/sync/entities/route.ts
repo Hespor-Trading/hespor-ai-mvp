@@ -1,3 +1,20 @@
+const supabase = getSupabaseServer();
+const { data: { user } } = await supabase.auth.getUser();
+
+let uid = user?.id || null;
+let days = 30;
+
+if (!uid) {
+  const url = new URL(req.url);
+  const qpUid = url.searchParams.get("user_id");
+  const body = req.method === "POST" ? await req.json().catch(()=> ({})) : {};
+  uid = body.user_id || qpUid || null;
+  days = Number(body.days || url.searchParams.get("days") || 30);
+  // From here, when uid comes from body/query, use supabaseAdmin for DB reads/writes.
+}
+
+if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
 // app/api/ads/sync/entities/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
