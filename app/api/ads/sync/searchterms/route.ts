@@ -20,18 +20,17 @@ type Cred = {
 export async function POST(req: Request) {
   try {
     // 1) Resolve user (cookie OR headless body/query)
-    const supabaseCookie = getSupabaseServer();
-    const { data: { user } } = await supabaseCookie.auth.getUser();
+    const cookieSb = getSupabaseServer();
+    const { data: { user } } = await cookieSb.auth.getUser();
 
     const url = new URL(req.url);
+    const debug = url.searchParams.get("debug") === "1";
     const maybeBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const user_id: string | undefined =
       user?.id || maybeBody.user_id || url.searchParams.get("user_id") || undefined;
     const days: number = Number(maybeBody.days || url.searchParams.get("days") || 30);
 
-    if (!user_id) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+    if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
     // 2) Service-role client (headless-safe)
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -57,14 +56,13 @@ export async function POST(req: Request) {
     if (!accessToken || exp <= now) {
       const t = await refreshAdsToken(cred.refresh_token);
       const expires_at = new Date(Date.now() + t.expires_in * 1000).toISOString();
-      await supa
-        .from("amazon_ads_credentials")
+      await supa.from("amazon_ads_credentials")
         .update({ access_token: t.access_token, expires_at })
         .eq("user_id", user_id);
       accessToken = t.access_token;
     }
 
-    // 5) Build report request (SP Search Terms)
+    // 5) Build report request (SP Search Terms) — most compatible shape
     const host = adsHostFor(cred.region || "na");
     const headers = {
       Authorization: `Bearer ${accessToken}`,
@@ -79,34 +77,43 @@ export async function POST(req: Request) {
     const end = new Date();
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
+    const createBody = {
+      name: "sp_search_terms",
+      startDate: fmt(start),
+      endDate: fmt(end),
+      configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        // some accounts expect "query" not "searchTerm" here:
+        groupBy: ["query"],
+        columns: [
+          "date",
+          "campaignId",
+          "adGroupId",
+          "query",
+          "keywordText",
+          "matchType",
+          "impressions",
+          "clicks",
+          "cost",
+          "purchases14d",
+          "sales14d"
+        ]
+      },
+      reportTypeId: "spSearchTerm",
+      timeUnit: "DAILY",
+      format: "GZIP_JSON"
+    };
+
     const create = await fetch(`${host}/v3/reports`, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        name: "sp_search_terms",
-        startDate: fmt(start),
-        endDate: fmt(end),
-        configuration: {
-          adProduct: "SPONSORED_PRODUCTS",
-          groupBy: ["searchTerm"],
-          columns: [
-            "date",
-            "campaignId",
-            "adGroupId",
-            "targetingExpression",
-            "impressions",
-            "clicks",
-            "cost",
-            "purchases14d",
-            "sales14d"
-          ],
-          reportTypeId: "spSearchTerm",
-        },
-        format: "GZIP_JSON",
-      }),
+      body: JSON.stringify(createBody),
     });
+
     if (!create.ok) {
-      return NextResponse.json({ ok: false, error: "create_report" }, { status: 502 });
+      const txt = await create.text().catch(() => "");
+      const payload = { ok: false, error: "create_report", status: create.status, detail: txt };
+      return NextResponse.json(debug ? payload : { ok: false, error: "create_report" }, { status: 502 });
     }
     const { reportId } = await create.json();
 
@@ -115,35 +122,42 @@ export async function POST(req: Request) {
     for (let i = 0; i < 30; i++) {
       await new Promise((r) => setTimeout(r, 2000));
       const st = await fetch(`${host}/v3/reports/${reportId}`, { headers });
+      if (!st.ok) {
+        const txt = await st.text().catch(() => "");
+        const payload = { ok: false, error: "poll_failed", status: st.status, detail: txt };
+        return NextResponse.json(debug ? payload : { ok: false, error: "poll_failed" }, { status: 502 });
+      }
       const j = await st.json();
       if (j.status === "SUCCESS") { location = j.location; break; }
       if (j.status === "FAILURE") {
-        return NextResponse.json({ ok: false, error: "report_failed" }, { status: 502 });
+        return NextResponse.json({ ok: false, error: "report_failed", detail: j }, { status: 502 });
       }
     }
-    if (!location) {
-      return NextResponse.json({ ok: false, error: "timeout" }, { status: 504 });
-    }
+    if (!location) return NextResponse.json({ ok: false, error: "timeout" }, { status: 504 });
 
     // 7) Download + parse GZIP JSON
     const dl = await fetch(location);
+    if (!dl.ok) {
+      const txt = await dl.text().catch(() => "");
+      return NextResponse.json({ ok: false, error: "download_failed", status: dl.status, detail: txt }, { status: 502 });
+    }
     const gz = Buffer.from(await dl.arrayBuffer());
     const raw = zlib.gunzipSync(gz).toString("utf8");
     const rows = JSON.parse(raw) as any[];
 
-    // 8) Upsert minimal fields
+    // 8) Upsert
     const mapped = rows.map((r) => ({
-      user_id,
+      user_id: user_id,
       profile_id: cred.profile_id,
       day: r.date,
       campaign_id: String(r.campaignId ?? ""),
       ad_group_id: String(r.adGroupId ?? ""),
-      keyword_text: String(r.targetingExpression ?? ""),
-      search_term: String(r.searchTerm ?? ""),
+      keyword_text: String(r.keywordText ?? r.targetingExpression ?? ""),
+      search_term: String(r.query ?? r.searchTerm ?? ""),
       match_type: String(r.matchType ?? ""),
       impressions: Number(r.impressions ?? 0),
       clicks: Number(r.clicks ?? 0),
-      cost: Number(r.cost ?? 0) / 1_000_000,   // microcurrency → $
+      cost: Number(r.cost ?? 0) / 1_000_000,   // micro → $
       orders: Number(r.purchases14d ?? 0),
       sales: Number(r.sales14d ?? 0) / 1_000_000,
     }));
