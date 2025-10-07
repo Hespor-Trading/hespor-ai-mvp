@@ -13,22 +13,33 @@ function dateNDaysAgo(days: number) {
 
 export async function GET(req: Request) {
   try {
+    // Try cookie auth first
     const supabase = getSupabaseServer();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
     const url = new URL(req.url);
     const days = Number(url.searchParams.get("days") || 30);
     const since = dateNDaysAgo(days);
 
+    // Fallback: allow headless calls with ?user_id=...
+    const user_id =
+      user?.id || url.searchParams.get("user_id") || undefined;
+
+    if (!user_id) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
+    // Read from Supabase cache (service role)
     const { data: rows, error } = await supabaseAdmin
       .from("ads_search_terms")
       .select("day,campaign_id,ad_group_id,search_term,clicks,cost,sales,orders")
-      .eq("user_id", user.id)
+      .eq("user_id", user_id)
       .gte("day", since)
       .limit(5000);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
     const termsAggMap = new Map<string, any>();
     const campAggMap = new Map<string, any>();
