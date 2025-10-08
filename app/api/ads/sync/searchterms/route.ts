@@ -21,7 +21,13 @@ async function fetchJSON(url: string, init?: RequestInit) {
   const text = await res.text();
   let json: any = {};
   try { json = text ? JSON.parse(text) : {}; } catch {}
-  if (!res.ok) throw new Error(json?.detail || json?.message || `HTTP ${res.status}: ${text}`);
+  if (!res.ok) {
+    const msg = (json && (json.detail || json.message)) || `HTTP ${res.status}: ${text}`;
+    const err: any = new Error(msg);
+    err.status = res.status;
+    err.body = text;
+    throw err;
+  }
   return json;
 }
 
@@ -33,7 +39,7 @@ async function getCred(user_id: string) {
     .maybeSingle();
   if (error || !data?.refresh_token || !data?.profile_id || !data?.region)
     throw new Error("missing-ads-credentials-for-user");
-  return data;
+  return data as { refresh_token: string; profile_id: string; region: string };
 }
 
 async function refreshAccessToken(refresh_token: string): Promise<string> {
@@ -65,29 +71,57 @@ export async function GET(req: NextRequest) {
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
 
-    // ✅ Official Amazon Ads v3.1 format (ALL nested under configuration)
-    const createBody = {
-      name: `sp-search-term-${startDate}-${endDate}`,
-      startDate,
-      endDate,
+    // ----- Candidate payloads (A → B → C) -----
+    const name = `sp-search-term-${startDate}-${endDate}`;
+    const cols = ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"];
+
+    // A) v3 classic: top-level adProduct + reportTypeId; others inside configuration
+    const schemaA = {
+      name, startDate, endDate,
+      adProduct: "SPONSORED_PRODUCTS",
+      reportTypeId: "spSearchTerm",
+      configuration: {
+        timeUnit: "DAILY",
+        groupBy: ["searchTerm"],
+        columns: cols,
+        filters: [],
+        format: "GZIP_JSON"
+      }
+    };
+
+    // B) v3.1 nested: everything inside configuration
+    const schemaB = {
+      name, startDate, endDate,
       configuration: {
         adProduct: "SPONSORED_PRODUCTS",
         reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        format: "GZIP_JSON",
         groupBy: ["searchTerm"],
-        columns: [
-          "date",
-          "searchTerm",
-          "impressions",
-          "clicks",
-          "cost",
-          "purchases14d",
-          "sales14d"
-        ],
-        filters: []
+        columns: cols,
+        filters: [],
+        format: "GZIP_JSON"
       }
     };
+
+    // C) hybrid older: reportTypeId top-level, adProduct inside configuration
+    const schemaC = {
+      name, startDate, endDate,
+      reportTypeId: "spSearchTerm",
+      configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        timeUnit: "DAILY",
+        groupBy: ["searchTerm"],
+        columns: cols,
+        filters: [],
+        format: "GZIP_JSON"
+      }
+    };
+
+    const payloads = [
+      { key: "schemaA", body: schemaA },
+      { key: "schemaB", body: schemaB },
+      { key: "schemaC", body: schemaC },
+    ];
 
     const headers = {
       Authorization: `Bearer ${access_token}`,
@@ -97,19 +131,35 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
-    const created = await fetchJSON(`${host}/reporting/reports`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(createBody),
-    });
+    let reportId: string | null = null;
+    const errors: Array<{schema: string; message: string}> = [];
 
-    const reportId = created?.reportId?.toString?.();
-    if (!reportId) throw new Error("no-report-id");
+    for (const p of payloads) {
+      try {
+        const created = await fetchJSON(`${host}/reporting/reports`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(p.body),
+        });
+        reportId = created?.reportId?.toString?.() || null;
+        if (reportId) { 
+          // we found the schema that works for this account
+          break;
+        }
+        errors.push({ schema: p.key, message: "no reportId in response" });
+      } catch (e: any) {
+        errors.push({ schema: p.key, message: e?.message || String(e) });
+      }
+    }
+
+    if (!reportId) {
+      return NextResponse.json({ ok: false, reason: "create-failed", attempts: errors });
+    }
 
     // Poll until finished
     let status = "PENDING";
     let location: string | null = null;
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 30; i++) {
       const r = await fetchJSON(`${host}/reporting/reports/${reportId}`, { headers });
       status = r?.status;
       if (status === "SUCCESS" && r?.location) { location = r.location; break; }
@@ -119,6 +169,7 @@ export async function GET(req: NextRequest) {
     if (!location)
       return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
+    // Download & parse (GZIP JSON or NDJSON)
     const dl = await fetch(location);
     const buf = Buffer.from(await dl.arrayBuffer());
     const unz = gunzipSync(buf);
@@ -127,8 +178,9 @@ export async function GET(req: NextRequest) {
       ? JSON.parse(txt)
       : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
 
+    // Upsert
     const rows = jsonRows.map((r: any) => ({
-      user_id,
+      user_id: user_id!,
       term: String(r.searchTerm || "").slice(0, 255),
       day: String(r.date || "").slice(0, 10),
       clicks: Number(r.clicks ?? 0),
@@ -138,8 +190,11 @@ export async function GET(req: NextRequest) {
       sales: Number(r.sales14d ?? 0),
     })).filter(r => r.term && r.day);
 
-    if (rows.length)
-      await supabaseAdmin.from("ads_search_terms").upsert(rows, { onConflict: "user_id,term,day" });
+    if (rows.length) {
+      await supabaseAdmin
+        .from("ads_search_terms")
+        .upsert(rows, { onConflict: "user_id,term,day" });
+    }
 
     return NextResponse.json({ ok: true, rows: rows.length, reportId });
   } catch (e: any) {
