@@ -65,14 +65,14 @@ export async function GET(req: NextRequest) {
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
 
-    // ✅ Officially correct structure for v3 Search Term report
+    // ✅ FINAL correct body (Amazon Ads v3 official spec)
     const createBody = {
       name: `sp-search-term-${startDate}-${endDate}`,
       startDate,
       endDate,
+      reportTypeId: "spSearchTerm",
+      adProduct: "SPONSORED_PRODUCTS",
       configuration: {
-        adProduct: "SPONSORED_PRODUCTS",
-        reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
         columns: [
           "date",
@@ -95,16 +95,16 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
+    // Step 1: Create report
     const created = await fetchJSON(`${host}/reporting/reports`, {
       method: "POST",
       headers,
       body: JSON.stringify(createBody),
     });
-
     const reportId = created?.reportId?.toString?.();
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll for completion
+    // Step 2: Poll for completion
     let status = "PENDING";
     let location: string | null = null;
     for (let i = 0; i < 25; i++) {
@@ -117,15 +117,16 @@ export async function GET(req: NextRequest) {
     if (!location)
       return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
+    // Step 3: Download and parse
     const dl = await fetch(location);
     const buf = Buffer.from(await dl.arrayBuffer());
     const unz = gunzipSync(buf);
     const txt = unz.toString("utf-8").trim();
-
     const jsonRows: any[] = txt.startsWith("[")
       ? JSON.parse(txt)
       : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
 
+    // Step 4: Save
     const rows = jsonRows.map((r: any) => ({
       user_id,
       term: String(r.searchTerm || "").slice(0, 255),
