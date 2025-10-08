@@ -1,111 +1,101 @@
-// app/api/ads/sync/entities/route.ts
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { adsHostFor } from "@/lib/ads/hosts";
-import { refreshAdsToken } from "@/lib/ads/tokens";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Cred = {
-  access_token: string | null;
-  refresh_token: string;
-  region: string | null;
-  profile_id: string;
-  expires_at: string | null;
-};
+const LWA_CLIENT_ID = process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
+const LWA_CLIENT_SECRET = process.env.ADS_LWA_CLIENT_SECRET || "";
 
-function toISODate(yyyymmdd?: string | null) {
-  if (!yyyymmdd || yyyymmdd.length !== 8) return null;
-  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
+type Cred = { refresh_token: string; profile_id: string; region: string };
+
+function hostFor(region: string) {
+  const r = (region || "na").toLowerCase();
+  if (r === "eu") return "https://advertising-api-eu.amazon.com";
+  if (r === "fe") return "https://advertising-api-fe.amazon.com";
+  return "https://advertising-api.amazon.com"; // na
 }
 
-export async function POST(req: Request) {
+async function fetchJSON(url: string, init?: RequestInit) {
+  const res = await fetch(url, init);
+  const text = await res.text();
+  let json: any = {};
+  try { json = text ? JSON.parse(text) : {}; } catch {}
+  if (!res.ok) throw new Error(json.error_description || json.message || `HTTP ${res.status}: ${text}`);
+  return json;
+}
+
+async function getCred(user_id: string): Promise<Cred> {
+  const { data, error } = await supabaseAdmin
+    .from("amazon_ads_credentials")
+    .select("refresh_token, profile_id, region")
+    .eq("user_id", user_id)
+    .maybeSingle();
+  if (error || !data?.refresh_token || !data?.profile_id || !data?.region) {
+    throw new Error("missing-ads-credentials-for-user");
+  }
+  return { refresh_token: data.refresh_token, profile_id: data.profile_id, region: data.region };
+}
+
+async function refreshAccessToken(refresh_token: string): Promise<string> {
+  const body = new URLSearchParams();
+  body.set("grant_type", "refresh_token");
+  body.set("refresh_token", refresh_token);
+  body.set("client_id", LWA_CLIENT_ID);
+  body.set("client_secret", LWA_CLIENT_SECRET);
+  const json = await fetchJSON("https://api.amazon.com/auth/o2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  return json.access_token;
+}
+
+export async function GET(req: NextRequest) {
   try {
-    // 1) Resolve user (cookie OR headless body/query)
-    const supabaseCookie = getSupabaseServer();
-    const { data: { user } } = await supabaseCookie.auth.getUser();
-
     const url = new URL(req.url);
-    const maybeBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const user_id: string | undefined =
-      user?.id || maybeBody.user_id || url.searchParams.get("user_id") || undefined;
+    const user_id = url.searchParams.get("user_id");
+    if (!user_id) return NextResponse.json({ ok: false, reason: "missing-user-id" });
 
-    if (!user_id) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+    const cred = await getCred(user_id);
+    const access_token = await refreshAccessToken(cred.refresh_token);
+    const host = hostFor(cred.region);
 
-    // 2) Service-role client (headless-safe)
-    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supa = createClient(sbUrl, sbKey, { auth: { persistSession: false } });
-
-    // 3) Get Ads credentials
-    const { data: cred, error: credErr } = await supa
-      .from("amazon_ads_credentials")
-      .select("access_token, refresh_token, region, profile_id, expires_at")
-      .eq("user_id", user_id)
-      .not("profile_id", "is", null)
-      .single<Cred>();
-
-    if (credErr || !cred) {
-      return NextResponse.json({ ok: false, error: "no_creds_or_profile" }, { status: 400 });
-    }
-
-    // 4) Refresh LWA if needed
-    let accessToken = cred.access_token;
-    const now = Date.now();
-    const exp = cred.expires_at ? Date.parse(cred.expires_at) : 0;
-    if (!accessToken || exp <= now) {
-      const t = await refreshAdsToken(cred.refresh_token);
-      const expires_at = new Date(Date.now() + t.expires_in * 1000).toISOString();
-      await supa
-        .from("amazon_ads_credentials")
-        .update({ access_token: t.access_token, expires_at })
-        .eq("user_id", user_id);
-      accessToken = t.access_token;
-    }
-
-    // 5) Fetch campaigns and upsert
-    const host = adsHostFor(cred.region || "na");
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Amazon-Advertising-API-ClientId":
-        process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "",
-      "Amazon-Advertising-API-Scope": cred.profile_id,
-      Accept: "application/json",
-    };
-
-    const camps = await fetch(
+    // v2 campaigns list (SP)
+    // stateFilter: enabled, paused, etc. We request all states to have a full snapshot.
+    const campaigns = await fetchJSON(
       `${host}/v2/sp/campaigns?stateFilter=enabled,paused,archived`,
-      { headers }
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Amazon-Advertising-API-ClientId": LWA_CLIENT_ID,
+          "Amazon-Advertising-API-Scope": cred.profile_id,
+          Accept: "application/json",
+        },
+      }
     );
-    if (!camps.ok) {
-      return NextResponse.json({ ok: false, error: "camps_fetch" }, { status: 502 });
+
+    // Normalize and upsert
+    const rows = (Array.isArray(campaigns) ? campaigns : []).map((c: any) => ({
+      user_id,
+      campaign_id: String(c.campaignId ?? c.campaign_id ?? ""),
+      name: String(c.name ?? c.campaignName ?? ""),
+      state: String(c.state ?? "").toLowerCase() || null,
+      daily_budget: c.dailyBudget ?? null,
+      start_date: c.startDate ?? null,
+      end_date: c.endDate ?? null,
+      targeting_type: c.targetingType ?? null,
+    })).filter((r: any) => r.campaign_id);
+
+    if (rows.length) {
+      await supabaseAdmin
+        .from("ads_campaigns")
+        .upsert(rows, { onConflict: "user_id,campaign_id" });
     }
-    const campaigns = await camps.json();
 
-    await supa.from("ads_campaigns").upsert(
-      (campaigns as any[]).map((c) => ({
-        user_id,
-        profile_id: cred.profile_id,
-        campaign_id: String(c.campaignId),
-        name: c.name,
-        state: c.state,
-        targeting_type: c.targetingType,
-        daily_budget: c.dailyBudget,
-        start_date: toISODate(c.startDate),
-        end_date: toISODate(c.endDate),
-      })),
-      { onConflict: "campaign_id" }
-    );
-
-    // (Optional TODOs) fetch and upsert ad groups / keywords similarly
-
-    return NextResponse.json({ ok: true, campaigns: (campaigns as any[]).length });
+    return NextResponse.json({ ok: true, count: rows.length });
   } catch (e: any) {
-    console.error("entities sync error", e);
-    return NextResponse.json({ error: "internal" }, { status: 500 });
+    console.error("sync/entities error:", e?.message || e);
+    return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
   }
 }
