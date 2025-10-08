@@ -1,112 +1,159 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const ADS_BASE = process.env.ADS_API_BASE || "https://advertising-api.amazon.com";
-const CLIENT_ID =
-  process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_CLIENT_ID || "";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function secondsFromNow(s: number) {
-  return new Date(Date.now() + s * 1000).toISOString();
-}
+type TokenRow = {
+  user_id?: string;
+  refresh_token?: string | null;
+  lwa_refresh_token?: string | null;
+  token_type?: string | null;
+  access_token?: string | null;
+  expires_at?: string | number | null;
+};
 
-async function refreshAdsToken(refresh_token: string) {
-  const client_id =
-    process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_CLIENT_ID!;
-  const client_secret =
-    process.env.ADS_LWA_CLIENT_SECRET || process.env.SP_LWA_CLIENT_SECRET!;
-  const r = await fetch("https://api.amazon.com/auth/o2/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token,
-      client_id,
-      client_secret,
-    }),
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return (await r.json()) as { access_token: string; expires_in: number };
-}
+const LWA_CLIENT_ID = process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
+const LWA_CLIENT_SECRET = process.env.ADS_LWA_CLIENT_SECRET || "";
+const REGION_HOSTS = [
+  { region: "NA", host: "https://advertising-api.amazon.com" },
+  { region: "EU", host: "https://advertising-api-eu.amazon.com" },
+  { region: "FE", host: "https://advertising-api-fe.amazon.com" },
+];
 
-export async function GET(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/auth/sign-in", req.url));
-
-  // 1) Get current creds
-  const { data: row, error } = await supabase
-    .from("amazon_ads_credentials")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-  if (error || !row) return NextResponse.redirect(new URL("/connect?error=no_creds", req.url));
-
-  let access_token: string = row.access_token;
-  let expires_at: string | null = row.expires_at ?? null;
-
-  // 2) Refresh if expiring in <5m (or missing)
-  const expSoon =
-    !expires_at || new Date(expires_at).getTime() - Date.now() < 5 * 60 * 1000;
-
-  if (expSoon && row.refresh_token) {
-    try {
-      const t = await refreshAdsToken(row.refresh_token);
-      access_token = t.access_token;
-      expires_at = secondsFromNow(t.expires_in);
-      await supabase
-        .from("amazon_ads_credentials")
-        .update({ access_token, expires_at })
-        .eq("user_id", user.id);
-    } catch {
-      // ignore; we'll still try enrich with existing token
-    }
-  }
-
-  // 3) Pull profiles, pick default profile + region
-  let profile_id = row.profile_id || "";
-  let brand = row.brand || "";
-  let region = row.region || "";
-
+async function fetchJSON(url: string, init?: RequestInit) {
+  const res = await fetch(url, init);
+  const text = await res.text();
   try {
-    const rp = await fetch(`${ADS_BASE}/v2/profiles`, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        "Amazon-Advertising-API-ClientId": CLIENT_ID,
-        Accept: "application/json",
-      },
-    });
-    if (rp.ok) {
-      const profiles = (await rp.json()) as Array<any>;
-      // pick the default else first
-      const p = profiles.find((x) => x?.accountInfo?.marketplaceStringId) || profiles[0];
-      if (p) {
-        profile_id = p.profileId?.toString() || profile_id;
-        brand = p.accountInfo?.name || brand || "";
-        const rid = (p.countryCode || p.accountInfo?.marketplaceStringId || "").toString().toUpperCase();
-        region =
-          rid.startsWith("US") || rid === "NA" ? "NA" :
-          rid === "EU" || ["DE","FR","IT","ES","UK","SE","PL","NL","BE"].includes(rid) ? "EU" :
-          rid === "FE" || ["JP","SG","AU","AE","SA","IN","TR","CN"].includes(rid) ? "FE" :
-          region || "NA";
-      }
+    const json = JSON.parse(text || "{}");
+    if (!res.ok) {
+      throw new Error(json.error_description || json.message || `HTTP ${res.status}`);
     }
-  } catch {
-    // ignore enrich failure
+    return json;
+  } catch (e: any) {
+    // if not JSON, still throw useful info
+    if (!res.ok) throw new Error(text || `HTTP ${res.status}`);
+    throw e;
   }
+}
 
-  // 4) Save enrichment (brand/profile/region/expires_at/access_token)
-  await supabase
-    .from("amazon_ads_credentials")
-    .update({
-      profile_id: profile_id || null,
-      brand: brand || null,
-      region: region || null,
-      expires_at: expires_at || null,
-      access_token,
-    })
-    .eq("user_id", user.id);
+async function getRefreshTokenForUser(user_id: string): Promise<string | null> {
+  // Try common table/column names in your project without breaking anything.
+  // 1) ads_credentials(refresh_token)
+  let q = await supabaseAdmin
+    .from("ads_credentials")
+    .select("refresh_token")
+    .eq("user_id", user_id)
+    .maybeSingle();
+  if (q.data?.refresh_token) return q.data.refresh_token;
 
-  // 5) Done
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+  // 2) amazon_ads_tokens(lwa_refresh_token)
+  q = await supabaseAdmin
+    .from("amazon_ads_tokens")
+    .select("lwa_refresh_token")
+    .eq("user_id", user_id)
+    .maybeSingle() as any;
+  if ((q as any).data?.lwa_refresh_token) return (q as any).data.lwa_refresh_token;
+
+  // 3) ads_tokens(refresh_token)
+  q = await supabaseAdmin
+    .from("ads_tokens")
+    .select("refresh_token")
+    .eq("user_id", user_id)
+    .maybeSingle();
+  if (q.data?.refresh_token) return q.data.refresh_token;
+
+  return null;
+}
+
+async function refreshAccessToken(refresh_token: string) {
+  const body = new URLSearchParams();
+  body.set("grant_type", "refresh_token");
+  body.set("refresh_token", refresh_token);
+  body.set("client_id", LWA_CLIENT_ID);
+  body.set("client_secret", LWA_CLIENT_SECRET);
+
+  const json = await fetchJSON("https://api.amazon.com/auth/o2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  return String(json.access_token || "");
+}
+
+async function pickProfile(access_token: string): Promise<{ profileId: string; region: string } | null> {
+  for (const { region, host } of REGION_HOSTS) {
+    try {
+      const profiles = await fetchJSON(`${host}/v2/profiles`, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Amazon-Advertising-API-ClientId": LWA_CLIENT_ID,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      if (Array.isArray(profiles) && profiles.length) {
+        // prefer "vendor" or "seller" active profile; otherwise first
+        const active =
+          profiles.find((p: any) => p.accountInfo?.marketplaceStringId && p.profileId) ||
+          profiles[0];
+        if (active?.profileId) {
+          return { profileId: String(active.profileId), region };
+        }
+      }
+    } catch (e) {
+      // try next region
+    }
+  }
+  return null;
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const user_id = url.searchParams.get("user_id");
+
+    if (!user_id) {
+      return NextResponse.json({ ok: false, reason: "missing-user-id" }, { status: 200 });
+    }
+    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET) {
+      return NextResponse.json({ ok: false, reason: "missing-lwa-env" }, { status: 200 });
+    }
+
+    // 1) Get user's LWA refresh token
+    const refresh_token = await getRefreshTokenForUser(user_id);
+    if (!refresh_token) {
+      return NextResponse.json({ ok: false, reason: "no-refresh-token-for-user" }, { status: 200 });
+    }
+
+    // 2) Get short-lived access token
+    const access_token = await refreshAccessToken(refresh_token);
+    if (!access_token) {
+      return NextResponse.json({ ok: false, reason: "token-refresh-failed" }, { status: 200 });
+    }
+
+    // 3) Ask Ads API for available profiles (try NA → EU → FE)
+    const picked = await pickProfile(access_token);
+    if (!picked) {
+      return NextResponse.json({ ok: false, reason: "no-profiles-returned" }, { status: 200 });
+    }
+
+    // 4) Save to your profile table
+    await supabaseAdmin
+      .from("user_profiles")
+      .upsert(
+        {
+          user_id,
+          ads_profile_id: picked.profileId,
+          ads_region: picked.region,
+        },
+        { onConflict: "user_id" }
+      );
+
+    return NextResponse.json({ ok: true, profile_id: picked.profileId, region: picked.region });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) }, { status: 200 });
+  }
 }
