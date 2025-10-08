@@ -65,15 +65,16 @@ export async function GET(req: NextRequest) {
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
 
-    // ✅ 100% correct structure for v3 Search Term report
+    // ✅ Official Amazon Ads v3.1 format (ALL nested under configuration)
     const createBody = {
       name: `sp-search-term-${startDate}-${endDate}`,
       startDate,
       endDate,
-      adProduct: "SPONSORED_PRODUCTS",
-      reportTypeId: "spSearchTerm",
       configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
+        format: "GZIP_JSON",
         groupBy: ["searchTerm"],
         columns: [
           "date",
@@ -84,8 +85,8 @@ export async function GET(req: NextRequest) {
           "purchases14d",
           "sales14d"
         ],
-        filters: [],
-      },
+        filters: []
+      }
     };
 
     const headers = {
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
     const reportId = created?.reportId?.toString?.();
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll for report completion
+    // Poll until finished
     let status = "PENDING";
     let location: string | null = null;
     for (let i = 0; i < 25; i++) {
@@ -118,7 +119,6 @@ export async function GET(req: NextRequest) {
     if (!location)
       return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
-    // Download and parse
     const dl = await fetch(location);
     const buf = Buffer.from(await dl.arrayBuffer());
     const unz = gunzipSync(buf);
@@ -127,7 +127,6 @@ export async function GET(req: NextRequest) {
       ? JSON.parse(txt)
       : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
 
-    // Save to Supabase
     const rows = jsonRows.map((r: any) => ({
       user_id,
       term: String(r.searchTerm || "").slice(0, 255),
