@@ -21,13 +21,7 @@ async function fetchJSON(url: string, init?: RequestInit) {
   const text = await res.text();
   let json: any = {};
   try { json = text ? JSON.parse(text) : {}; } catch {}
-  if (!res.ok) {
-    const msg = (json && (json.detail || json.message)) || `HTTP ${res.status}: ${text}`;
-    const err: any = new Error(msg);
-    err.status = res.status;
-    err.body = text;
-    throw err;
-  }
+  if (!res.ok) throw new Error(json?.detail || json?.message || `HTTP ${res.status}: ${text}`);
   return json;
 }
 
@@ -39,7 +33,7 @@ async function getCred(user_id: string) {
     .maybeSingle();
   if (error || !data?.refresh_token || !data?.profile_id || !data?.region)
     throw new Error("missing-ads-credentials-for-user");
-  return data as { refresh_token: string; profile_id: string; region: string };
+  return data;
 }
 
 async function refreshAccessToken(refresh_token: string): Promise<string> {
@@ -70,117 +64,29 @@ export async function GET(req: NextRequest) {
     const since = new Date(Date.now() - days * 86400000);
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
-
     const name = `sp-search-term-${startDate}-${endDate}`;
 
-    // Two possible metric key names across versions
-    const columns = ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"];
-    const metrics = ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"];
-
-    // Two reportTypeId variants we’ve seen
-    const RTI = ["spSearchTerm","spSearchTermQuery"];
-
-    // Build 6 candidate payloads (A/B/C × columns|metrics), plus swap reportTypeId
-    const makeBodies = () => {
-      const bodies: Array<{key: string; body: any}> = [];
-      for (const reportTypeId of RTI) {
-        // A) top-level adProduct + reportTypeId
-        bodies.push({
-          key: `A-columns-${reportTypeId}`,
-          body: {
-            name, startDate, endDate,
-            adProduct: "SPONSORED_PRODUCTS",
-            reportTypeId,
-            configuration: {
-              timeUnit: "DAILY",
-              groupBy: ["searchTerm"],
-              columns,
-              filters: [],
-              format: "GZIP_JSON",
-            },
-          },
-        });
-        bodies.push({
-          key: `A-metrics-${reportTypeId}`,
-          body: {
-            name, startDate, endDate,
-            adProduct: "SPONSORED_PRODUCTS",
-            reportTypeId,
-            configuration: {
-              timeUnit: "DAILY",
-              groupBy: ["searchTerm"],
-              metrics,
-              filters: [],
-              format: "GZIP_JSON",
-            },
-          },
-        });
-
-        // B) everything nested inside configuration
-        bodies.push({
-          key: `B-columns-${reportTypeId}`,
-          body: {
-            name, startDate, endDate,
-            configuration: {
-              adProduct: "SPONSORED_PRODUCTS",
-              reportTypeId,
-              timeUnit: "DAILY",
-              groupBy: ["searchTerm"],
-              columns,
-              filters: [],
-              format: "GZIP_JSON",
-            },
-          },
-        });
-        bodies.push({
-          key: `B-metrics-${reportTypeId}`,
-          body: {
-            name, startDate, endDate,
-            configuration: {
-              adProduct: "SPONSORED_PRODUCTS",
-              reportTypeId,
-              timeUnit: "DAILY",
-              groupBy: ["searchTerm"],
-              metrics,
-              filters: [],
-              format: "GZIP_JSON",
-            },
-          },
-        });
-
-        // C) reportTypeId top-level, adProduct nested
-        bodies.push({
-          key: `C-columns-${reportTypeId}`,
-          body: {
-            name, startDate, endDate,
-            reportTypeId,
-            configuration: {
-              adProduct: "SPONSORED_PRODUCTS",
-              timeUnit: "DAILY",
-              groupBy: ["searchTerm"],
-              columns,
-              filters: [],
-              format: "GZIP_JSON",
-            },
-          },
-        });
-        bodies.push({
-          key: `C-metrics-${reportTypeId}`,
-          body: {
-            name, startDate, endDate,
-            reportTypeId,
-            configuration: {
-              adProduct: "SPONSORED_PRODUCTS",
-              timeUnit: "DAILY",
-              groupBy: ["searchTerm"],
-              metrics,
-              filters: [],
-              format: "GZIP_JSON",
-            },
-          },
-        });
-      }
-      return bodies;
+    const createBody = {
+      name,
+      startDate,
+      endDate,
+      configuration: {
+        adProduct: "SPONSORED_PRODUCTS",
+        reportTypeId: "spSearchTerm",
+        timeUnit: "DAILY",
+        groupBy: ["searchTerm"],
+        columns: [
+          "date",
+          "searchTerm",
+          "impressions",
+          "clicks",
+          "cost",
+          "purchases14d",
+          "sales14d"
+        ],
+        filters: [],
+        format: "GZIP_JSON",
+      },
     };
 
     const headers = {
@@ -191,36 +97,18 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
-    let reportId: string | null = null;
-    const attempts: Array<{schema: string; error?: string; ok?: boolean}> = [];
+    const created = await fetchJSON(`${host}/reporting/reports`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(createBody),
+    });
+    const reportId = created?.reportId?.toString?.();
+    if (!reportId) throw new Error("no-report-id");
 
-    for (const p of makeBodies()) {
-      try {
-        const created = await fetchJSON(`${host}/reporting/reports`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(p.body),
-        });
-        reportId = created?.reportId?.toString?.() || null;
-        if (reportId) {
-          attempts.push({ schema: p.key, ok: true });
-          break;
-        } else {
-          attempts.push({ schema: p.key, error: "no reportId in response" });
-        }
-      } catch (e: any) {
-        attempts.push({ schema: p.key, error: e?.message || String(e) });
-      }
-    }
-
-    if (!reportId) {
-      return NextResponse.json({ ok: false, reason: "create-failed", attempts });
-    }
-
-    // Poll for completion
+    // Poll for up to 90 seconds (Amazon can be slow)
     let status = "PENDING";
     let location: string | null = null;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 90; i++) {
       const r = await fetchJSON(`${host}/reporting/reports/${reportId}`, { headers });
       status = r?.status;
       if (status === "SUCCESS" && r?.location) { location = r.location; break; }
@@ -228,9 +116,9 @@ export async function GET(req: NextRequest) {
       await new Promise(res => setTimeout(res, 1000));
     }
     if (!location)
-      return NextResponse.json({ ok: false, reason: "timeout", reportId, status, attempts });
+      return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
-    // Download & parse (gzip JSON or NDJSON)
+    // Download and parse
     const dl = await fetch(location);
     const buf = Buffer.from(await dl.arrayBuffer());
     const unz = gunzipSync(buf);
@@ -240,7 +128,7 @@ export async function GET(req: NextRequest) {
       : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
 
     const rows = jsonRows.map((r: any) => ({
-      user_id: user_id!,
+      user_id,
       term: String(r.searchTerm || "").slice(0, 255),
       day: String(r.date || "").slice(0, 10),
       clicks: Number(r.clicks ?? 0),
@@ -250,13 +138,10 @@ export async function GET(req: NextRequest) {
       sales: Number(r.sales14d ?? 0),
     })).filter(r => r.term && r.day);
 
-    if (rows.length) {
-      await supabaseAdmin
-        .from("ads_search_terms")
-        .upsert(rows, { onConflict: "user_id,term,day" });
-    }
+    if (rows.length)
+      await supabaseAdmin.from("ads_search_terms").upsert(rows, { onConflict: "user_id,term,day" });
 
-    return NextResponse.json({ ok: true, rows: rows.length, reportId, attempts });
+    return NextResponse.json({ ok: true, rows: rows.length, reportId });
   } catch (e: any) {
     console.error("searchterms sync error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
