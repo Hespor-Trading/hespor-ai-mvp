@@ -71,57 +71,117 @@ export async function GET(req: NextRequest) {
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
 
-    // ----- Candidate payloads (A → B → C) -----
     const name = `sp-search-term-${startDate}-${endDate}`;
-    const cols = ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"];
 
-    // A) v3 classic: top-level adProduct + reportTypeId; others inside configuration
-    const schemaA = {
-      name, startDate, endDate,
-      adProduct: "SPONSORED_PRODUCTS",
-      reportTypeId: "spSearchTerm",
-      configuration: {
-        timeUnit: "DAILY",
-        groupBy: ["searchTerm"],
-        columns: cols,
-        filters: [],
-        format: "GZIP_JSON"
+    // Two possible metric key names across versions
+    const columns = ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"];
+    const metrics = ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"];
+
+    // Two reportTypeId variants we’ve seen
+    const RTI = ["spSearchTerm","spSearchTermQuery"];
+
+    // Build 6 candidate payloads (A/B/C × columns|metrics), plus swap reportTypeId
+    const makeBodies = () => {
+      const bodies: Array<{key: string; body: any}> = [];
+      for (const reportTypeId of RTI) {
+        // A) top-level adProduct + reportTypeId
+        bodies.push({
+          key: `A-columns-${reportTypeId}`,
+          body: {
+            name, startDate, endDate,
+            adProduct: "SPONSORED_PRODUCTS",
+            reportTypeId,
+            configuration: {
+              timeUnit: "DAILY",
+              groupBy: ["searchTerm"],
+              columns,
+              filters: [],
+              format: "GZIP_JSON",
+            },
+          },
+        });
+        bodies.push({
+          key: `A-metrics-${reportTypeId}`,
+          body: {
+            name, startDate, endDate,
+            adProduct: "SPONSORED_PRODUCTS",
+            reportTypeId,
+            configuration: {
+              timeUnit: "DAILY",
+              groupBy: ["searchTerm"],
+              metrics,
+              filters: [],
+              format: "GZIP_JSON",
+            },
+          },
+        });
+
+        // B) everything nested inside configuration
+        bodies.push({
+          key: `B-columns-${reportTypeId}`,
+          body: {
+            name, startDate, endDate,
+            configuration: {
+              adProduct: "SPONSORED_PRODUCTS",
+              reportTypeId,
+              timeUnit: "DAILY",
+              groupBy: ["searchTerm"],
+              columns,
+              filters: [],
+              format: "GZIP_JSON",
+            },
+          },
+        });
+        bodies.push({
+          key: `B-metrics-${reportTypeId}`,
+          body: {
+            name, startDate, endDate,
+            configuration: {
+              adProduct: "SPONSORED_PRODUCTS",
+              reportTypeId,
+              timeUnit: "DAILY",
+              groupBy: ["searchTerm"],
+              metrics,
+              filters: [],
+              format: "GZIP_JSON",
+            },
+          },
+        });
+
+        // C) reportTypeId top-level, adProduct nested
+        bodies.push({
+          key: `C-columns-${reportTypeId}`,
+          body: {
+            name, startDate, endDate,
+            reportTypeId,
+            configuration: {
+              adProduct: "SPONSORED_PRODUCTS",
+              timeUnit: "DAILY",
+              groupBy: ["searchTerm"],
+              columns,
+              filters: [],
+              format: "GZIP_JSON",
+            },
+          },
+        });
+        bodies.push({
+          key: `C-metrics-${reportTypeId}`,
+          body: {
+            name, startDate, endDate,
+            reportTypeId,
+            configuration: {
+              adProduct: "SPONSORED_PRODUCTS",
+              timeUnit: "DAILY",
+              groupBy: ["searchTerm"],
+              metrics,
+              filters: [],
+              format: "GZIP_JSON",
+            },
+          },
+        });
       }
+      return bodies;
     };
-
-    // B) v3.1 nested: everything inside configuration
-    const schemaB = {
-      name, startDate, endDate,
-      configuration: {
-        adProduct: "SPONSORED_PRODUCTS",
-        reportTypeId: "spSearchTerm",
-        timeUnit: "DAILY",
-        groupBy: ["searchTerm"],
-        columns: cols,
-        filters: [],
-        format: "GZIP_JSON"
-      }
-    };
-
-    // C) hybrid older: reportTypeId top-level, adProduct inside configuration
-    const schemaC = {
-      name, startDate, endDate,
-      reportTypeId: "spSearchTerm",
-      configuration: {
-        adProduct: "SPONSORED_PRODUCTS",
-        timeUnit: "DAILY",
-        groupBy: ["searchTerm"],
-        columns: cols,
-        filters: [],
-        format: "GZIP_JSON"
-      }
-    };
-
-    const payloads = [
-      { key: "schemaA", body: schemaA },
-      { key: "schemaB", body: schemaB },
-      { key: "schemaC", body: schemaC },
-    ];
 
     const headers = {
       Authorization: `Bearer ${access_token}`,
@@ -132,9 +192,9 @@ export async function GET(req: NextRequest) {
     } as Record<string, string>;
 
     let reportId: string | null = null;
-    const errors: Array<{schema: string; message: string}> = [];
+    const attempts: Array<{schema: string; error?: string; ok?: boolean}> = [];
 
-    for (const p of payloads) {
+    for (const p of makeBodies()) {
       try {
         const created = await fetchJSON(`${host}/reporting/reports`, {
           method: "POST",
@@ -142,21 +202,22 @@ export async function GET(req: NextRequest) {
           body: JSON.stringify(p.body),
         });
         reportId = created?.reportId?.toString?.() || null;
-        if (reportId) { 
-          // we found the schema that works for this account
+        if (reportId) {
+          attempts.push({ schema: p.key, ok: true });
           break;
+        } else {
+          attempts.push({ schema: p.key, error: "no reportId in response" });
         }
-        errors.push({ schema: p.key, message: "no reportId in response" });
       } catch (e: any) {
-        errors.push({ schema: p.key, message: e?.message || String(e) });
+        attempts.push({ schema: p.key, error: e?.message || String(e) });
       }
     }
 
     if (!reportId) {
-      return NextResponse.json({ ok: false, reason: "create-failed", attempts: errors });
+      return NextResponse.json({ ok: false, reason: "create-failed", attempts });
     }
 
-    // Poll until finished
+    // Poll for completion
     let status = "PENDING";
     let location: string | null = null;
     for (let i = 0; i < 30; i++) {
@@ -167,9 +228,9 @@ export async function GET(req: NextRequest) {
       await new Promise(res => setTimeout(res, 1000));
     }
     if (!location)
-      return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
+      return NextResponse.json({ ok: false, reason: "timeout", reportId, status, attempts });
 
-    // Download & parse (GZIP JSON or NDJSON)
+    // Download & parse (gzip JSON or NDJSON)
     const dl = await fetch(location);
     const buf = Buffer.from(await dl.arrayBuffer());
     const unz = gunzipSync(buf);
@@ -178,7 +239,6 @@ export async function GET(req: NextRequest) {
       ? JSON.parse(txt)
       : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
 
-    // Upsert
     const rows = jsonRows.map((r: any) => ({
       user_id: user_id!,
       term: String(r.searchTerm || "").slice(0, 255),
@@ -196,7 +256,7 @@ export async function GET(req: NextRequest) {
         .upsert(rows, { onConflict: "user_id,term,day" });
     }
 
-    return NextResponse.json({ ok: true, rows: rows.length, reportId });
+    return NextResponse.json({ ok: true, rows: rows.length, reportId, attempts });
   } catch (e: any) {
     console.error("searchterms sync error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
