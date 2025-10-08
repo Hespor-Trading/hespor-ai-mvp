@@ -57,8 +57,34 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
   return json.access_token;
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+async function downloadAndStore(location: string, user_id: string) {
+  const dl = await fetch(location);
+  const buf = Buffer.from(await dl.arrayBuffer());
+  const unz = gunzipSync(buf);
+  const txt = unz.toString("utf-8").trim();
+  const jsonRows: any[] = txt.startsWith("[")
+    ? JSON.parse(txt)
+    : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+
+  const rows = jsonRows.map((r: any) => ({
+    user_id,
+    term: String(r.searchTerm || "").slice(0, 255),
+    day: String(r.date || "").slice(0, 10),
+    clicks: Number(r.clicks ?? 0),
+    impressions: Number(r.impressions ?? 0),
+    cost: Number(r.cost ?? 0),
+    orders: Number(r.purchases14d ?? 0),
+    sales: Number(r.sales14d ?? 0),
+  })).filter(r => r.term && r.day);
+
+  if (rows.length) {
+    await supabaseAdmin
+      .from("ads_search_terms")
+      .upsert(rows, { onConflict: "user_id,term,day" });
+  }
+  return rows.length;
 }
 
 export async function GET(req: NextRequest) {
@@ -80,7 +106,7 @@ export async function GET(req: NextRequest) {
     const baseName = `sp-search-term-${startDate}-${endDate}`;
     const name = force === "new" ? `${baseName}-${Date.now()}` : baseName;
 
-    // ✅ confirmed working schema for your account (from last run)
+    // ✅ schema confirmed for your account
     const createBody = {
       name,
       startDate,
@@ -104,6 +130,7 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
+    // Create (or capture duplicate)
     let reportId: string | null = null;
     try {
       const created = await fetchJSON(`${host}/reporting/reports`, {
@@ -113,7 +140,6 @@ export async function GET(req: NextRequest) {
       });
       reportId = created?.reportId?.toString?.() || null;
     } catch (e: any) {
-      // Amazon duplicate error contains "... duplicate of : <reportId>"
       const m = (e?.message || e?.text || "").match(/duplicate of\s*:\s*([0-9a-f-]{20,})/i);
       if (m?.[1]) {
         reportId = m[1];
@@ -121,52 +147,27 @@ export async function GET(req: NextRequest) {
         throw e;
       }
     }
-
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll up to ~180s with gentle backoff (1s → 6s)
+    // Poll up to ~10 minutes with gentle backoff (1s → 15s)
     let status = "PENDING";
     let location: string | null = null;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 100; i++) {
       const r = await fetchJSON(`${host}/reporting/reports/${reportId}`, { headers });
       status = r?.status;
       if (status === "SUCCESS" && r?.location) { location = r.location; break; }
       if (status === "FAILURE") throw new Error("report-failure");
-      // backoff: 1,2,3,4,5,6 then stay at 6s
-      const wait = Math.min(i + 1, 6) * 1000;
+      const wait = Math.min(15, i + 1) * 1000;
       await sleep(wait);
     }
 
     if (!location) {
-      return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
+      // Give a link you can ping to finish later (no more manual rebuilds)
+      return NextResponse.json({ ok: false, reason: "timeout", reportId, status, next: `/api/ads/report?user_id=${user_id}&report_id=${reportId}` });
     }
 
-    // Download & parse (gzipped JSON or NDJSON)
-    const dl = await fetch(location);
-    const buf = Buffer.from(await dl.arrayBuffer());
-    const unz = gunzipSync(buf);
-    const txt = unz.toString("utf-8").trim();
-    const jsonRows: any[] = txt.startsWith("[")
-      ? JSON.parse(txt)
-      : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-
-    // Upsert rows
-    const rows = jsonRows.map((r: any) => ({
-      user_id: user_id!,
-      term: String(r.searchTerm || "").slice(0, 255),
-      day: String(r.date || "").slice(0, 10),
-      clicks: Number(r.clicks ?? 0),
-      impressions: Number(r.impressions ?? 0),
-      cost: Number(r.cost ?? 0),
-      orders: Number(r.purchases14d ?? 0),
-      sales: Number(r.sales14d ?? 0),
-    })).filter(r => r.term && r.day);
-
-    if (rows.length) {
-      await supabaseAdmin.from("ads_search_terms").upsert(rows, { onConflict: "user_id,term,day" });
-    }
-
-    return NextResponse.json({ ok: true, rows: rows.length, reportId });
+    const saved = await downloadAndStore(location, user_id);
+    return NextResponse.json({ ok: true, rows: saved, reportId });
   } catch (e: any) {
     console.error("searchterms sync error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
