@@ -4,7 +4,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const LWA_CLIENT_ID = process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
+const LWA_CLIENT_ID =
+  process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
 const LWA_CLIENT_SECRET = process.env.ADS_LWA_CLIENT_SECRET || "";
 
 type Cred = { refresh_token: string; profile_id: string; region: string };
@@ -51,6 +52,40 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
   return json.access_token;
 }
 
+async function getSPCampaigns(host: string, access_token: string, scope: string) {
+  // Try modern unified endpoint first, then older variants.
+  const headers = {
+    Authorization: `Bearer ${access_token}`,
+    "Amazon-Advertising-API-ClientId": LWA_CLIENT_ID,
+    "Amazon-Advertising-API-Scope": scope,
+    Accept: "application/json",
+  } as Record<string, string>;
+
+  const candidates = [
+    // unified v2
+    `${host}/v2/campaigns?campaignTypeFilter=SPONSORED_PRODUCTS&stateFilter=enabled,paused,archived`,
+    // unified v2 with legacy value
+    `${host}/v2/campaigns?campaignTypeFilter=SP&stateFilter=enabled,paused,archived`,
+    // older SP-specific path (some accounts still allow)
+    `${host}/v2/sp/campaigns?stateFilter=enabled,paused,archived`,
+    // extended (includes extra fields)
+    `${host}/v2/campaigns/extended?campaignTypeFilter=SPONSORED_PRODUCTS&stateFilter=enabled,paused,archived`,
+  ];
+
+  let lastErr: any = null;
+  for (const url of candidates) {
+    try {
+      const data = await fetchJSON(url, { headers });
+      if (Array.isArray(data)) return data;
+      if (Array.isArray((data as any).campaigns)) return (data as any).campaigns;
+    } catch (e: any) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr || new Error("no-campaign-endpoint");
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -61,36 +96,23 @@ export async function GET(req: NextRequest) {
     const access_token = await refreshAccessToken(cred.refresh_token);
     const host = hostFor(cred.region);
 
-    // v2 campaigns list (SP)
-    // stateFilter: enabled, paused, etc. We request all states to have a full snapshot.
-    const campaigns = await fetchJSON(
-      `${host}/v2/sp/campaigns?stateFilter=enabled,paused,archived`,
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          "Amazon-Advertising-API-ClientId": LWA_CLIENT_ID,
-          "Amazon-Advertising-API-Scope": cred.profile_id,
-          Accept: "application/json",
-        },
-      }
-    );
+    const campaigns = await getSPCampaigns(host, access_token, cred.profile_id);
 
-    // Normalize and upsert
     const rows = (Array.isArray(campaigns) ? campaigns : []).map((c: any) => ({
       user_id,
       campaign_id: String(c.campaignId ?? c.campaign_id ?? ""),
       name: String(c.name ?? c.campaignName ?? ""),
       state: String(c.state ?? "").toLowerCase() || null,
-      daily_budget: c.dailyBudget ?? null,
-      start_date: c.startDate ?? null,
-      end_date: c.endDate ?? null,
-      targeting_type: c.targetingType ?? null,
-    })).filter((r: any) => r.campaign_id);
+      daily_budget: c.dailyBudget ?? c.daily_budget ?? null,
+      start_date: c.startDate ?? c.start_date ?? null,
+      end_date: c.endDate ?? c.end_date ?? null,
+      targeting_type: c.targetingType ?? c.targeting_type ?? null,
+    })).filter((r) => r.campaign_id);
 
     if (rows.length) {
-      await supabaseAdmin
-        .from("ads_campaigns")
-        .upsert(rows, { onConflict: "user_id,campaign_id" });
+      await supabaseAdmin.from("ads_campaigns").upsert(rows, {
+        onConflict: "user_id,campaign_id",
+      });
     }
 
     return NextResponse.json({ ok: true, count: rows.length });
