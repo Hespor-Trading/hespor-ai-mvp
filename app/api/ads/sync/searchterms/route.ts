@@ -9,8 +9,6 @@ const LWA_CLIENT_ID =
   process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
 const LWA_CLIENT_SECRET = process.env.ADS_LWA_CLIENT_SECRET || "";
 
-type Cred = { refresh_token: string; profile_id: string; region: string };
-
 function hostFor(region: string) {
   const r = (region || "na").toLowerCase();
   if (r === "eu") return "https://advertising-api-eu.amazon.com";
@@ -27,16 +25,15 @@ async function fetchJSON(url: string, init?: RequestInit) {
   return json;
 }
 
-async function getCred(user_id: string): Promise<Cred> {
+async function getCred(user_id: string) {
   const { data, error } = await supabaseAdmin
     .from("amazon_ads_credentials")
     .select("refresh_token, profile_id, region")
     .eq("user_id", user_id)
     .maybeSingle();
-  if (error || !data?.refresh_token || !data?.profile_id || !data?.region) {
+  if (error || !data?.refresh_token || !data?.profile_id || !data?.region)
     throw new Error("missing-ads-credentials-for-user");
-  }
-  return { refresh_token: data.refresh_token, profile_id: data.profile_id, region: data.region };
+  return data;
 }
 
 async function refreshAccessToken(refresh_token: string): Promise<string> {
@@ -53,9 +50,6 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
   return json.access_token;
 }
 
-/**
- * Create + poll a v3 SP Search Term report (correct config keys), then upsert to ads_search_terms.
- */
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -67,22 +61,19 @@ export async function GET(req: NextRequest) {
     const access_token = await refreshAccessToken(cred.refresh_token);
     const host = hostFor(cred.region);
 
-    // dates
     const since = new Date(Date.now() - days * 86400000);
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
 
-    // ✅ Correct v3 structure: timeUnit/columns/groupBy live INSIDE configuration
-    // ✅ Correct keys: searchTerm, purchases14d, sales14d
+    // ✅ Officially correct structure for v3 Search Term report
     const createBody = {
       name: `sp-search-term-${startDate}-${endDate}`,
       startDate,
       endDate,
-      reportTypeId: "spSearchTerm",
       configuration: {
         adProduct: "SPONSORED_PRODUCTS",
+        reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        groupBy: ["searchTerm"],
         columns: [
           "date",
           "searchTerm",
@@ -91,8 +82,9 @@ export async function GET(req: NextRequest) {
           "cost",
           "purchases14d",
           "sales14d"
-        ]
-      }
+        ],
+        filters: [],
+      },
     };
 
     const headers = {
@@ -103,16 +95,16 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
-    // 1) Create report
     const created = await fetchJSON(`${host}/reporting/reports`, {
       method: "POST",
       headers,
       body: JSON.stringify(createBody),
     });
+
     const reportId = created?.reportId?.toString?.();
     if (!reportId) throw new Error("no-report-id");
 
-    // 2) Poll
+    // Poll for completion
     let status = "PENDING";
     let location: string | null = null;
     for (let i = 0; i < 25; i++) {
@@ -122,9 +114,9 @@ export async function GET(req: NextRequest) {
       if (status === "FAILURE") throw new Error("report-failure");
       await new Promise(res => setTimeout(res, 1000));
     }
-    if (!location) return NextResponse.json({ ok: false, reason: "timeout-waiting-report", reportId, status });
+    if (!location)
+      return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
-    // 3) Download gzip and parse (NDJSON or JSON)
     const dl = await fetch(location);
     const buf = Buffer.from(await dl.arrayBuffer());
     const unz = gunzipSync(buf);
@@ -134,23 +126,19 @@ export async function GET(req: NextRequest) {
       ? JSON.parse(txt)
       : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
 
-    // 4) Transform + upsert
     const rows = jsonRows.map((r: any) => ({
       user_id,
-      term: String(r.searchTerm || r.query || "").slice(0, 255),
-      day: String(r.date || r.reportDate || "").slice(0, 10),
+      term: String(r.searchTerm || "").slice(0, 255),
+      day: String(r.date || "").slice(0, 10),
       clicks: Number(r.clicks ?? 0),
       impressions: Number(r.impressions ?? 0),
       cost: Number(r.cost ?? 0),
-      orders: Number(r.purchases14d ?? r.attributedConversions14d ?? 0),
-      sales: Number(r.sales14d ?? r.attributedSales14d ?? 0),
-    })).filter((r) => r.term && r.day);
+      orders: Number(r.purchases14d ?? 0),
+      sales: Number(r.sales14d ?? 0),
+    })).filter(r => r.term && r.day);
 
-    if (rows.length) {
-      await supabaseAdmin
-        .from("ads_search_terms")
-        .upsert(rows, { onConflict: "user_id,term,day" });
-    }
+    if (rows.length)
+      await supabaseAdmin.from("ads_search_terms").upsert(rows, { onConflict: "user_id,term,day" });
 
     return NextResponse.json({ ok: true, rows: rows.length, reportId });
   } catch (e: any) {
