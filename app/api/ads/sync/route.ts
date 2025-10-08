@@ -1,42 +1,30 @@
-import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
+// Basic orchestrator: first entities (campaigns). You can add search-terms next.
+export async function GET(req: NextRequest) {
   try {
-    const supabase = getSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const url = new URL(req.url);
+    const user_id = url.searchParams.get("user_id");
+    if (!user_id) return NextResponse.json({ ok: false, reason: "missing-user-id" });
 
-    const body = await req.json().catch(() => ({}));
-    const days = Number(body?.days || 30);
+    const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    const headers = { };
 
-    const base = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "http://localhost:3000";
-    const entitiesURL = new URL("/api/ads/sync/entities", base).toString();
-    const searchURL = new URL("/api/ads/sync/searchterms", base).toString();
+    // 1) campaigns/entities
+    const entRes = await fetch(`${base}/api/ads/sync/entities?user_id=${encodeURIComponent(user_id)}`, { headers });
+    const ent = await entRes.json();
 
-    const [eRes, stRes] = await Promise.all([
-      fetch(entitiesURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id })
-      }),
-      fetch(searchURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id, days })
-      })
-    ]);
-
-    const eJson = await eRes.json().catch(() => ({}));
-    const stJson = await stRes.json().catch(() => ({}));
-
-    const ok = eRes.ok && stRes.ok;
-    return NextResponse.json({ ok, entities: eJson, searchterms: stJson });
-  } catch (e:any) {
-    console.error("ads/sync/all error", e);
-    return NextResponse.json({ error: "internal" }, { status: 500 });
+    return NextResponse.json({
+      ok: ent?.ok === true,
+      steps: {
+        entities: ent,
+      }
+    });
+  } catch (e: any) {
+    console.error("sync orchestrator error:", e?.message || e);
+    return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
   }
 }
