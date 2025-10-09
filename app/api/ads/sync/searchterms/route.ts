@@ -21,14 +21,7 @@ async function fetchJSON(url: string, init?: RequestInit) {
   const text = await res.text();
   let json: any = {};
   try { json = text ? JSON.parse(text) : {}; } catch {}
-  if (!res.ok) {
-    const msg = (json && (json.detail || json.message)) || `HTTP ${res.status}: ${text}`;
-    const err: any = new Error(msg);
-    err.status = res.status;
-    err.text = text;
-    err.json = json;
-    throw err;
-  }
+  if (!res.ok) throw new Error(json?.detail || json?.message || `HTTP ${res.status}: ${text}`);
   return json;
 }
 
@@ -58,7 +51,6 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
 function parseRows(text: string) {
   const trimmed = text.trim();
   return trimmed.startsWith("[")
@@ -71,7 +63,6 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const user_id = url.searchParams.get("user_id");
     const days = Math.max(7, Math.min(60, parseInt(url.searchParams.get("days") || "30", 10)));
-    const force = (url.searchParams.get("force") || "").toLowerCase();
     if (!user_id) return NextResponse.json({ ok: false, reason: "missing-user-id" });
 
     const cred = await getCred(user_id);
@@ -81,23 +72,30 @@ export async function GET(req: NextRequest) {
     const since = new Date(Date.now() - days * 86400000);
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
-    const baseName = `sp-search-term-${startDate}-${endDate}`;
-    const name = force === "new" ? `${baseName}-${Date.now()}` : baseName;
+    const reportName = `sp-searchterm-${startDate}-${endDate}-${Date.now()}`;
 
-    const createBody = {
-      name,
+    const body = {
+      name: reportName,
       startDate,
       endDate,
       configuration: {
         adProduct: "SPONSORED_PRODUCTS",
         reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        groupBy: ["searchTerm","keywordText","matchType","campaignId","adGroupId"],
+        groupBy: ["searchTerm"], // only allowed now
         columns: [
-          "date","searchTerm","keywordText","matchType",
-          "campaignId","adGroupId","impressions","clicks","cost","purchases14d","sales14d"
+          "date",
+          "searchTerm",
+          "impressions",
+          "clicks",
+          "cost",
+          "purchases14d",
+          "sales14d",
+          "keywordText",
+          "matchType",
+          "campaignId",
+          "adGroupId"
         ],
-        filters: [],
         format: "GZIP_JSON",
       },
     };
@@ -110,44 +108,38 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
-    // Create or capture duplicate report id
-    let reportId: string | null = null;
-    try {
-      const created = await fetchJSON(`${host}/reporting/reports`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(createBody),
-      });
-      reportId = created?.reportId?.toString?.() || null;
-    } catch (e: any) {
-      const m = (e?.message || e?.text || "").match(/duplicate of\s*:\s*([0-9a-f-]{20,})/i);
-      if (m?.[1]) reportId = m[1]; else throw e;
-    }
+    // Create report
+    const created = await fetchJSON(`${host}/reporting/reports`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    const reportId = created?.reportId;
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll up to ~10 minutes
+    // Poll
     let status = "PENDING";
     let downloadUrl: string | null = null;
     for (let i = 0; i < 100; i++) {
       const r = await fetchJSON(`${host}/reporting/reports/${reportId}`, { headers });
       status = (r?.status || "").toUpperCase();
-      const maybeUrl = (r?.location || r?.url) as string | undefined;
-      if ((status === "SUCCESS" || status === "COMPLETED") && maybeUrl) { downloadUrl = maybeUrl; break; }
+      if ((status === "SUCCESS" || status === "COMPLETED") && r?.location) {
+        downloadUrl = r.location;
+        break;
+      }
       if (status === "FAILURE") throw new Error("report-failure");
       await sleep(Math.min(15, i + 1) * 1000);
     }
 
-    if (!downloadUrl) {
+    if (!downloadUrl)
       return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
-    }
 
-    // Download, parse and upsert
     const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
     const text = gunzipSync(buf).toString("utf-8");
-    const jsonRows = parseRows(text) as any[];
+    const data = parseRows(text);
 
-    const rows = jsonRows
+    const rows = data
       .map((r: any) => ({
         user_id: user_id!,
         day: String(r.date || "").slice(0, 10),
@@ -162,9 +154,7 @@ export async function GET(req: NextRequest) {
         orders: Number(r.purchases14d ?? 0),
         sales: Number(r.sales14d ?? 0),
       }))
-      .filter((r: any) =>
-        r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
-      );
+      .filter((r: any) => r.search_term && r.keyword_text);
 
     if (rows.length) {
       await supabaseAdmin
