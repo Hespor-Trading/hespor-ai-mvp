@@ -50,6 +50,14 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
   return json.access_token;
 }
 
+function parseRows(text: string) {
+  const trimmed = text.trim();
+  const items: any[] = trimmed.startsWith("[")
+    ? JSON.parse(trimmed)
+    : trimmed.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
+  return items;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -58,43 +66,49 @@ export async function GET(req: NextRequest) {
     if (!user_id || !report_id) {
       return NextResponse.json({ ok: false, reason: "missing-user-or-report" });
     }
+
     const cred = await getCred(user_id);
     const access_token = await refreshAccessToken(cred.refresh_token);
     const host = hostFor(cred.region);
-
     const headers = {
       Authorization: `Bearer ${access_token}`,
       "Amazon-Advertising-API-ClientId": LWA_CLIENT_ID,
       "Amazon-Advertising-API-Scope": cred.profile_id,
-      "Content-Type": "application/json",
       Accept: "application/json",
     } as Record<string, string>;
 
-    const r = await fetchJSON(`${host}/reporting/reports/${report_id}`, { headers });
+    const statusResp = await fetchJSON(`${host}/reporting/reports/${report_id}`, { headers });
 
-    if (r?.status !== "SUCCESS" || !r?.location) {
-      return NextResponse.json({ ok: false, status: r?.status || "UNKNOWN", reportId: report_id });
+    const status: string = (statusResp?.status || "").toUpperCase();
+    const downloadUrl: string | undefined = statusResp?.location || statusResp?.url;
+
+    if (!(status === "SUCCESS" || status === "COMPLETED") || !downloadUrl) {
+      // Not ready yet
+      return NextResponse.json({
+        ok: false,
+        status: status || "UNKNOWN",
+        reportId: report_id,
+        raw: statusResp,
+      });
     }
 
-    // If ready, download, store, and return ok:true
-    const dl = await fetch(r.location);
+    // Download gzip and parse
+    const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
-    const unz = gunzipSync(buf);
-    const txt = unz.toString("utf-8").trim();
-    const jsonRows: any[] = txt.startsWith("[")
-      ? JSON.parse(txt)
-      : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+    const text = gunzipSync(buf).toString("utf-8");
+    const rowsJSON = parseRows(text);
 
-    const rows = jsonRows.map((d: any) => ({
+    // Map to our table shape
+    const rows = rowsJSON.map((r: any) => ({
       user_id,
-      term: String(d.searchTerm || "").slice(0, 255),
-      day: String(d.date || "").slice(0, 10),
-      clicks: Number(d.clicks ?? 0),
-      impressions: Number(d.impressions ?? 0),
-      cost: Number(d.cost ?? 0),
-      orders: Number(d.purchases14d ?? 0),
-      sales: Number(d.sales14d ?? 0),
-    })).filter(rw => rw.term && rw.day);
+      term: String(r.searchTerm || "").slice(0, 255),
+      day: String(r.date || "").slice(0, 10),
+      clicks: Number(r.clicks ?? 0),
+      impressions: Number(r.impressions ?? 0),
+      cost: Number(r.cost ?? 0),
+      orders: Number(r.purchases14d ?? 0),
+      sales: Number(r.sales14d ?? 0),
+    })).filter(r => r.term && r.day);
 
     if (rows.length) {
       await supabaseAdmin
