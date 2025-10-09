@@ -87,24 +87,26 @@ export async function GET(req: NextRequest) {
     const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
     const text = gunzipSync(buf).toString("utf-8");
-    const data = parseRows(text);
+    const data = parseRows(text) as any[];
 
-    const rows = data.map((r: any) => ({
-      user_id: user_id!,
-      day: String(r.date || "").slice(0, 10),
-      campaign_id: r.campaignId?.toString?.() || null,
-      ad_group_id: r.adGroupId?.toString?.() || null,
-      keyword_text: r.keywordText ?? null,
-      search_term: r.searchTerm ?? null,
-      match_type: r.matchType ?? null,
-      impressions: Number(r.impressions ?? 0),
-      clicks: Number(r.clicks ?? 0),
-      cost: Number(r.cost ?? 0),
-      orders: Number(r.purchases14d ?? 0),
-      sales: Number(r.sales14d ?? 0),
-    })).filter(r =>
-      r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
-    );
+    const rows = data
+      .map((r: any) => ({
+        user_id: user_id!,
+        day: String(r.date || "").slice(0, 10),
+        campaign_id: r.campaignId?.toString?.() || null,
+        ad_group_id: r.adGroupId?.toString?.() || null,
+        keyword_text: r.keywordText ?? null,
+        search_term: r.searchTerm ?? null,
+        match_type: r.matchType ?? null,
+        impressions: Number(r.impressions ?? 0),
+        clicks: Number(r.clicks ?? 0),
+        cost: Number(r.cost ?? 0),
+        orders: Number(r.purchases14d ?? 0),
+        sales: Number(r.sales14d ?? 0),
+      }))
+      .filter((r: any) =>
+        r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
+      );
 
     if (rows.length) {
       await supabaseAdmin
