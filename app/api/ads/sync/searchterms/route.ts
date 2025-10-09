@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
     const endDate = new Date().toISOString().slice(0, 10);
     const reportName = `sp-searchterm-${startDate}-${endDate}-${Date.now()}`;
 
+    // NOTE: groupBy must be ONLY ["searchTerm"] and columns must use "keyword" (not keywordText)
     const body = {
       name: reportName,
       startDate,
@@ -82,19 +83,14 @@ export async function GET(req: NextRequest) {
         adProduct: "SPONSORED_PRODUCTS",
         reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        groupBy: ["searchTerm"], // only allowed now
+        groupBy: ["searchTerm"],
         columns: [
-          "date",
-          "searchTerm",
-          "impressions",
-          "clicks",
-          "cost",
-          "purchases14d",
-          "sales14d",
-          "keywordText",
+          "date", "searchTerm",
+          "impressions", "clicks", "cost",
+          "purchases14d", "sales14d",
           "matchType",
-          "campaignId",
-          "adGroupId"
+          "campaignId", "adGroupId",
+          "keywordId", "keyword"
         ],
         format: "GZIP_JSON",
       },
@@ -117,7 +113,7 @@ export async function GET(req: NextRequest) {
     const reportId = created?.reportId;
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll
+    // Poll up to ~10 minutes
     let status = "PENDING";
     let downloadUrl: string | null = null;
     for (let i = 0; i < 100; i++) {
@@ -134,18 +130,19 @@ export async function GET(req: NextRequest) {
     if (!downloadUrl)
       return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
+    // Download, parse, map to DB
     const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
     const text = gunzipSync(buf).toString("utf-8");
     const data = parseRows(text);
 
-    const rows = data
+    const rows = (data as any[])
       .map((r: any) => ({
         user_id: user_id!,
         day: String(r.date || "").slice(0, 10),
         campaign_id: r.campaignId?.toString?.() || null,
         ad_group_id: r.adGroupId?.toString?.() || null,
-        keyword_text: r.keywordText ?? null,
+        keyword_text: r.keyword ?? null,          // <-- map "keyword" into our column
         search_term: r.searchTerm ?? null,
         match_type: r.matchType ?? null,
         impressions: Number(r.impressions ?? 0),
