@@ -52,10 +52,9 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
 
 function parseRows(text: string) {
   const trimmed = text.trim();
-  const items: any[] = trimmed.startsWith("[")
+  return trimmed.startsWith("[")
     ? JSON.parse(trimmed)
     : trimmed.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
-  return items;
 }
 
 export async function GET(req: NextRequest) {
@@ -78,47 +77,46 @@ export async function GET(req: NextRequest) {
     } as Record<string, string>;
 
     const statusResp = await fetchJSON(`${host}/reporting/reports/${report_id}`, { headers });
-
     const status: string = (statusResp?.status || "").toUpperCase();
     const downloadUrl: string | undefined = statusResp?.location || statusResp?.url;
 
     if (!(status === "SUCCESS" || status === "COMPLETED") || !downloadUrl) {
-      // Not ready yet
-      return NextResponse.json({
-        ok: false,
-        status: status || "UNKNOWN",
-        reportId: report_id,
-        raw: statusResp,
-      });
+      return NextResponse.json({ ok: false, status: status || "UNKNOWN", reportId: report_id });
     }
 
-    // Download gzip and parse
     const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
     const text = gunzipSync(buf).toString("utf-8");
-    const rowsJSON = parseRows(text);
+    const data = parseRows(text);
 
-    // Map to our table shape
-    const rows = rowsJSON.map((r: any) => ({
-      user_id,
-      term: String(r.searchTerm || "").slice(0, 255),
+    const rows = data.map((r: any) => ({
+      user_id: user_id!,
       day: String(r.date || "").slice(0, 10),
-      clicks: Number(r.clicks ?? 0),
+      campaign_id: r.campaignId?.toString?.() || null,
+      ad_group_id: r.adGroupId?.toString?.() || null,
+      keyword_text: r.keywordText ?? null,
+      search_term: r.searchTerm ?? null,
+      match_type: r.matchType ?? null,
       impressions: Number(r.impressions ?? 0),
+      clicks: Number(r.clicks ?? 0),
       cost: Number(r.cost ?? 0),
       orders: Number(r.purchases14d ?? 0),
       sales: Number(r.sales14d ?? 0),
-    })).filter(r => r.term && r.day);
+    })).filter(r =>
+      r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
+    );
 
     if (rows.length) {
       await supabaseAdmin
         .from("ads_search_terms")
-        .upsert(rows, { onConflict: "user_id,term,day" });
+        .upsert(rows, {
+          onConflict: "user_id,day,campaign_id,ad_group_id,keyword_text,search_term",
+        });
     }
 
     return NextResponse.json({ ok: true, rows: rows.length, reportId: report_id });
   } catch (e: any) {
-    console.error("report status error:", e?.message || e);
+    console.error("report finish error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
   }
 }
