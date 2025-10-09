@@ -50,19 +50,22 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
   return json.access_token;
 }
 
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 function parseRows(text: string) {
-  const trimmed = text.trim();
-  return trimmed.startsWith("[")
-    ? JSON.parse(trimmed)
-    : trimmed.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
+  const t = text.trim();
+  return t.startsWith("[")
+    ? JSON.parse(t)
+    : t.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
 }
 
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const user_id = url.searchParams.get("user_id");
-    const days = Math.max(7, Math.min(60, parseInt(url.searchParams.get("days") || "30", 10)));
+    // MUST cap to 31 because Amazon Ads reporting enforces max 31-day windows
+    const daysReq = parseInt(url.searchParams.get("days") || "30", 10);
+    const days = Math.max(1, Math.min(31, isNaN(daysReq) ? 30 : daysReq));
     if (!user_id) return NextResponse.json({ ok: false, reason: "missing-user-id" });
 
     const cred = await getCred(user_id);
@@ -74,7 +77,7 @@ export async function GET(req: NextRequest) {
     const endDate = new Date().toISOString().slice(0, 10);
     const reportName = `sp-searchterm-${startDate}-${endDate}-${Date.now()}`;
 
-    // NOTE: groupBy must be ONLY ["searchTerm"] and columns must use "keyword" (not keywordText)
+    // Required shape for SP Search Term report
     const body = {
       name: reportName,
       startDate,
@@ -83,26 +86,26 @@ export async function GET(req: NextRequest) {
         adProduct: "SPONSORED_PRODUCTS",
         reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        groupBy: ["searchTerm"],
+        groupBy: ["searchTerm"], // ONLY searchTerm allowed
         columns: [
           "date", "searchTerm",
           "impressions", "clicks", "cost",
           "purchases14d", "sales14d",
           "matchType",
           "campaignId", "adGroupId",
-          "keywordId", "keyword"
+          "keywordId", "keyword" // <-- “keyword”, not “keywordText”
         ],
         format: "GZIP_JSON",
       },
     };
 
-    const headers = {
+    const headers: Record<string,string> = {
       Authorization: `Bearer ${access_token}`,
       "Amazon-Advertising-API-ClientId": LWA_CLIENT_ID,
       "Amazon-Advertising-API-Scope": cred.profile_id,
       "Content-Type": "application/json",
       Accept: "application/json",
-    } as Record<string, string>;
+    };
 
     // Create report
     const created = await fetchJSON(`${host}/reporting/reports`, {
@@ -113,7 +116,7 @@ export async function GET(req: NextRequest) {
     const reportId = created?.reportId;
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll up to ~10 minutes
+    // Poll (up to ~10 minutes)
     let status = "PENDING";
     let downloadUrl: string | null = null;
     for (let i = 0; i < 100; i++) {
@@ -127,10 +130,9 @@ export async function GET(req: NextRequest) {
       await sleep(Math.min(15, i + 1) * 1000);
     }
 
-    if (!downloadUrl)
-      return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
+    if (!downloadUrl) return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
 
-    // Download, parse, map to DB
+    // Download, parse, map → DB
     const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
     const text = gunzipSync(buf).toString("utf-8");
@@ -142,7 +144,7 @@ export async function GET(req: NextRequest) {
         day: String(r.date || "").slice(0, 10),
         campaign_id: r.campaignId?.toString?.() || null,
         ad_group_id: r.adGroupId?.toString?.() || null,
-        keyword_text: r.keyword ?? null,          // <-- map "keyword" into our column
+        keyword_text: r.keyword ?? null,      // map “keyword” → keyword_text
         search_term: r.searchTerm ?? null,
         match_type: r.matchType ?? null,
         impressions: Number(r.impressions ?? 0),
@@ -151,7 +153,7 @@ export async function GET(req: NextRequest) {
         orders: Number(r.purchases14d ?? 0),
         sales: Number(r.sales14d ?? 0),
       }))
-      .filter((r: any) => r.search_term && r.keyword_text);
+      .filter((r) => r.search_term && r.keyword_text);
 
     if (rows.length) {
       await supabaseAdmin
