@@ -84,7 +84,6 @@ export async function GET(req: NextRequest) {
     const baseName = `sp-search-term-${startDate}-${endDate}`;
     const name = force === "new" ? `${baseName}-${Date.now()}` : baseName;
 
-    // 🔴 Important: ask Amazon for the same fields your table has
     const createBody = {
       name,
       startDate,
@@ -93,20 +92,10 @@ export async function GET(req: NextRequest) {
         adProduct: "SPONSORED_PRODUCTS",
         reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        // group by enough keys to keep per-keyword/per-campaign granularity
-        groupBy: ["searchTerm", "keywordText", "matchType", "campaignId", "adGroupId"],
+        groupBy: ["searchTerm","keywordText","matchType","campaignId","adGroupId"],
         columns: [
-          "date",
-          "searchTerm",
-          "keywordText",
-          "matchType",
-          "campaignId",
-          "adGroupId",
-          "impressions",
-          "clicks",
-          "cost",
-          "purchases14d",
-          "sales14d"
+          "date","searchTerm","keywordText","matchType",
+          "campaignId","adGroupId","impressions","clicks","cost","purchases14d","sales14d"
         ],
         filters: [],
         format: "GZIP_JSON",
@@ -136,7 +125,7 @@ export async function GET(req: NextRequest) {
     }
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll up to ~10 minutes (Vercel may 504; you can finish with /api/ads/report)
+    // Poll up to ~10 minutes
     let status = "PENDING";
     let downloadUrl: string | null = null;
     for (let i = 0; i < 100; i++) {
@@ -156,24 +145,26 @@ export async function GET(req: NextRequest) {
     const dl = await fetch(downloadUrl);
     const buf = Buffer.from(await dl.arrayBuffer());
     const text = gunzipSync(buf).toString("utf-8");
-    const jsonRows = parseRows(text);
+    const jsonRows = parseRows(text) as any[];
 
-    const rows = jsonRows.map((r: any) => ({
-      user_id: user_id!,
-      day: String(r.date || "").slice(0, 10),
-      campaign_id: r.campaignId?.toString?.() || null,
-      ad_group_id: r.adGroupId?.toString?.() || null,
-      keyword_text: r.keywordText ?? null,
-      search_term: r.searchTerm ?? null,
-      match_type: r.matchType ?? null,
-      impressions: Number(r.impressions ?? 0),
-      clicks: Number(r.clicks ?? 0),
-      cost: Number(r.cost ?? 0),
-      orders: Number(r.purchases14d ?? 0),
-      sales: Number(r.sales14d ?? 0),
-    })).filter(r =>
-      r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
-    );
+    const rows = jsonRows
+      .map((r: any) => ({
+        user_id: user_id!,
+        day: String(r.date || "").slice(0, 10),
+        campaign_id: r.campaignId?.toString?.() || null,
+        ad_group_id: r.adGroupId?.toString?.() || null,
+        keyword_text: r.keywordText ?? null,
+        search_term: r.searchTerm ?? null,
+        match_type: r.matchType ?? null,
+        impressions: Number(r.impressions ?? 0),
+        clicks: Number(r.clicks ?? 0),
+        cost: Number(r.cost ?? 0),
+        orders: Number(r.purchases14d ?? 0),
+        sales: Number(r.sales14d ?? 0),
+      }))
+      .filter((r: any) =>
+        r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
+      );
 
     if (rows.length) {
       await supabaseAdmin
