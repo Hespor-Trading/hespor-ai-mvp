@@ -58,33 +58,11 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
-async function downloadAndStore(location: string, user_id: string) {
-  const dl = await fetch(location);
-  const buf = Buffer.from(await dl.arrayBuffer());
-  const unz = gunzipSync(buf);
-  const txt = unz.toString("utf-8").trim();
-  const jsonRows: any[] = txt.startsWith("[")
-    ? JSON.parse(txt)
-    : txt.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-
-  const rows = jsonRows.map((r: any) => ({
-    user_id,
-    term: String(r.searchTerm || "").slice(0, 255),
-    day: String(r.date || "").slice(0, 10),
-    clicks: Number(r.clicks ?? 0),
-    impressions: Number(r.impressions ?? 0),
-    cost: Number(r.cost ?? 0),
-    orders: Number(r.purchases14d ?? 0),
-    sales: Number(r.sales14d ?? 0),
-  })).filter(r => r.term && r.day);
-
-  if (rows.length) {
-    await supabaseAdmin
-      .from("ads_search_terms")
-      .upsert(rows, { onConflict: "user_id,term,day" });
-  }
-  return rows.length;
+function parseRows(text: string) {
+  const trimmed = text.trim();
+  return trimmed.startsWith("[")
+    ? JSON.parse(trimmed)
+    : trimmed.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
 }
 
 export async function GET(req: NextRequest) {
@@ -92,7 +70,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const user_id = url.searchParams.get("user_id");
     const days = Math.max(7, Math.min(60, parseInt(url.searchParams.get("days") || "30", 10)));
-    const force = (url.searchParams.get("force") || "").toLowerCase(); // "", "new"
+    const force = (url.searchParams.get("force") || "").toLowerCase();
     if (!user_id) return NextResponse.json({ ok: false, reason: "missing-user-id" });
 
     const cred = await getCred(user_id);
@@ -102,11 +80,9 @@ export async function GET(req: NextRequest) {
     const since = new Date(Date.now() - days * 86400000);
     const startDate = since.toISOString().slice(0, 10);
     const endDate = new Date().toISOString().slice(0, 10);
-
     const baseName = `sp-search-term-${startDate}-${endDate}`;
     const name = force === "new" ? `${baseName}-${Date.now()}` : baseName;
 
-    // ✅ schema confirmed for your account
     const createBody = {
       name,
       startDate,
@@ -130,7 +106,7 @@ export async function GET(req: NextRequest) {
       Accept: "application/json",
     } as Record<string, string>;
 
-    // Create (or capture duplicate)
+    // Create or capture duplicate report id
     let reportId: string | null = null;
     try {
       const created = await fetchJSON(`${host}/reporting/reports`, {
@@ -141,33 +117,52 @@ export async function GET(req: NextRequest) {
       reportId = created?.reportId?.toString?.() || null;
     } catch (e: any) {
       const m = (e?.message || e?.text || "").match(/duplicate of\s*:\s*([0-9a-f-]{20,})/i);
-      if (m?.[1]) {
-        reportId = m[1];
-      } else {
-        throw e;
-      }
+      if (m?.[1]) reportId = m[1]; else throw e;
     }
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll up to ~10 minutes with gentle backoff (1s → 15s)
+    // Poll up to ~10 minutes
     let status = "PENDING";
-    let location: string | null = null;
+    let downloadUrl: string | null = null;
     for (let i = 0; i < 100; i++) {
       const r = await fetchJSON(`${host}/reporting/reports/${reportId}`, { headers });
-      status = r?.status;
-      if (status === "SUCCESS" && r?.location) { location = r.location; break; }
+      status = (r?.status || "").toUpperCase();
+      if ((status === "SUCCESS" || status === "COMPLETED") && (r?.location || r?.url)) {
+        downloadUrl = (r.location || r.url) as string;
+        break;
+      }
       if (status === "FAILURE") throw new Error("report-failure");
-      const wait = Math.min(15, i + 1) * 1000;
-      await sleep(wait);
+      await sleep(Math.min(15, i + 1) * 1000);
     }
 
-    if (!location) {
-      // Give a link you can ping to finish later (no more manual rebuilds)
-      return NextResponse.json({ ok: false, reason: "timeout", reportId, status, next: `/api/ads/report?user_id=${user_id}&report_id=${reportId}` });
+    if (!downloadUrl) {
+      return NextResponse.json({ ok: false, reason: "timeout", reportId, status });
     }
 
-    const saved = await downloadAndStore(location, user_id);
-    return NextResponse.json({ ok: true, rows: saved, reportId });
+    // Download, parse and upsert
+    const dl = await fetch(downloadUrl);
+    const buf = Buffer.from(await dl.arrayBuffer());
+    const text = gunzipSync(buf).toString("utf-8");
+    const jsonRows = parseRows(text);
+
+    const rows = jsonRows.map((r: any) => ({
+      user_id: user_id!,
+      term: String(r.searchTerm || "").slice(0, 255),
+      day: String(r.date || "").slice(0, 10),
+      clicks: Number(r.clicks ?? 0),
+      impressions: Number(r.impressions ?? 0),
+      cost: Number(r.cost ?? 0),
+      orders: Number(r.purchases14d ?? 0),
+      sales: Number(r.sales14d ?? 0),
+    })).filter(r => r.term && r.day);
+
+    if (rows.length) {
+      await supabaseAdmin
+        .from("ads_search_terms")
+        .upsert(rows, { onConflict: "user_id,term,day" });
+    }
+
+    return NextResponse.json({ ok: true, rows: rows.length, reportId });
   } catch (e: any) {
     console.error("searchterms sync error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
