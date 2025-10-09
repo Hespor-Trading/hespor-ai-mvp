@@ -58,6 +58,7 @@ async function refreshAccessToken(refresh_token: string): Promise<string> {
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
 function parseRows(text: string) {
   const trimmed = text.trim();
   return trimmed.startsWith("[")
@@ -83,6 +84,7 @@ export async function GET(req: NextRequest) {
     const baseName = `sp-search-term-${startDate}-${endDate}`;
     const name = force === "new" ? `${baseName}-${Date.now()}` : baseName;
 
+    // 🔴 Important: ask Amazon for the same fields your table has
     const createBody = {
       name,
       startDate,
@@ -91,8 +93,21 @@ export async function GET(req: NextRequest) {
         adProduct: "SPONSORED_PRODUCTS",
         reportTypeId: "spSearchTerm",
         timeUnit: "DAILY",
-        groupBy: ["searchTerm"],
-        columns: ["date","searchTerm","impressions","clicks","cost","purchases14d","sales14d"],
+        // group by enough keys to keep per-keyword/per-campaign granularity
+        groupBy: ["searchTerm", "keywordText", "matchType", "campaignId", "adGroupId"],
+        columns: [
+          "date",
+          "searchTerm",
+          "keywordText",
+          "matchType",
+          "campaignId",
+          "adGroupId",
+          "impressions",
+          "clicks",
+          "cost",
+          "purchases14d",
+          "sales14d"
+        ],
         filters: [],
         format: "GZIP_JSON",
       },
@@ -121,16 +136,14 @@ export async function GET(req: NextRequest) {
     }
     if (!reportId) throw new Error("no-report-id");
 
-    // Poll up to ~10 minutes
+    // Poll up to ~10 minutes (Vercel may 504; you can finish with /api/ads/report)
     let status = "PENDING";
     let downloadUrl: string | null = null;
     for (let i = 0; i < 100; i++) {
       const r = await fetchJSON(`${host}/reporting/reports/${reportId}`, { headers });
       status = (r?.status || "").toUpperCase();
-      if ((status === "SUCCESS" || status === "COMPLETED") && (r?.location || r?.url)) {
-        downloadUrl = (r.location || r.url) as string;
-        break;
-      }
+      const maybeUrl = (r?.location || r?.url) as string | undefined;
+      if ((status === "SUCCESS" || status === "COMPLETED") && maybeUrl) { downloadUrl = maybeUrl; break; }
       if (status === "FAILURE") throw new Error("report-failure");
       await sleep(Math.min(15, i + 1) * 1000);
     }
@@ -147,19 +160,27 @@ export async function GET(req: NextRequest) {
 
     const rows = jsonRows.map((r: any) => ({
       user_id: user_id!,
-      term: String(r.searchTerm || "").slice(0, 255),
       day: String(r.date || "").slice(0, 10),
-      clicks: Number(r.clicks ?? 0),
+      campaign_id: r.campaignId?.toString?.() || null,
+      ad_group_id: r.adGroupId?.toString?.() || null,
+      keyword_text: r.keywordText ?? null,
+      search_term: r.searchTerm ?? null,
+      match_type: r.matchType ?? null,
       impressions: Number(r.impressions ?? 0),
+      clicks: Number(r.clicks ?? 0),
       cost: Number(r.cost ?? 0),
       orders: Number(r.purchases14d ?? 0),
       sales: Number(r.sales14d ?? 0),
-    })).filter(r => r.term && r.day);
+    })).filter(r =>
+      r.day && r.search_term && r.keyword_text && r.campaign_id && r.ad_group_id
+    );
 
     if (rows.length) {
       await supabaseAdmin
         .from("ads_search_terms")
-        .upsert(rows, { onConflict: "user_id,term,day" });
+        .upsert(rows, {
+          onConflict: "user_id,day,campaign_id,ad_group_id,keyword_text,search_term",
+        });
     }
 
     return NextResponse.json({ ok: true, rows: rows.length, reportId });
