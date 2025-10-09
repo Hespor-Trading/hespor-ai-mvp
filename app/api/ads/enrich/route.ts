@@ -4,7 +4,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const LWA_CLIENT_ID = process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
+const LWA_CLIENT_ID =
+  process.env.ADS_LWA_CLIENT_ID ||
+  process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID ||
+  "";
 const LWA_CLIENT_SECRET = process.env.ADS_LWA_CLIENT_SECRET || "";
 
 const REGION_HOSTS = [
@@ -15,10 +18,10 @@ const REGION_HOSTS = [
 
 async function fetchJSON(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
-  const text = await res.text();
+  const txt = await res.text();
   let json: any = {};
-  try { json = text ? JSON.parse(text) : {}; } catch {}
-  if (!res.ok) throw new Error(json.error_description || json.message || `HTTP ${res.status}: ${text}`);
+  try { json = txt ? JSON.parse(txt) : {}; } catch {}
+  if (!res.ok) throw new Error(json.error_description || json.message || `HTTP ${res.status}: ${txt}`);
   return json;
 }
 
@@ -57,7 +60,7 @@ export async function GET(req: NextRequest) {
 
     const access_token = await refreshAccessToken(refresh_token);
 
-    // Try NA → EU → FE and capture brand if available
+    // Find a profile (try NA → EU → FE)
     let profile_id: string | null = null;
     let region: string | null = null;
     let brand: string | null = null;
@@ -71,32 +74,50 @@ export async function GET(req: NextRequest) {
             Accept: "application/json",
           },
         });
+
         if (Array.isArray(profiles) && profiles.length) {
-          const chosen =
-            profiles.find((p: any) => p.accountInfo?.marketplaceStringId && p.profileId) || profiles[0];
-          if (chosen?.profileId) {
-            profile_id = String(chosen.profileId);
-            region = r;
-            brand = chosen.accountInfo?.name || chosen.profileName || null;
+          // Favor SP-eligible profiles if present; otherwise first
+          const cand =
+            profiles.find((p: any) => p.profileId && p.accountInfo?.marketplaceStringId) ||
+            profiles[0];
+
+          if (cand?.profileId) {
+            profile_id = String(cand.profileId);
+            region = r; // NA | EU | FE
+            brand = cand.accountInfo?.name || cand.profileName || null;
             break;
           }
         }
-      } catch { /* try next region */ }
+      } catch {
+        // try next region
+      }
     }
 
-    if (!profile_id || !region) return NextResponse.json({ ok: false, reason: "no-profiles-returned" });
+    if (!profile_id || !region) {
+      return NextResponse.json({ ok: false, reason: "no-profiles-returned" });
+    }
 
-    // Save into amazon_ads_credentials (your schema of record)
+    const regionLower = region.toLowerCase();
+
+    // Update source of truth
     await supabaseAdmin
       .from("amazon_ads_credentials")
       .update({
         profile_id: profile_id,
-        region: region.toLowerCase(),
+        region: regionLower,
         brand: brand || "EMPTY",
       })
       .eq("user_id", user_id);
 
-    return NextResponse.json({ ok: true, profile_id, region, brand: brand || "EMPTY" });
+    // Also ensure ads_profiles is populated (so sync works without manual insert)
+    await supabaseAdmin
+      .from("ads_profiles")
+      .upsert(
+        { user_id, profile_id, country: regionLower }, // your table uses "country"
+        { onConflict: "user_id" }
+      );
+
+    return NextResponse.json({ ok: true, user_id, profile_id, region: regionLower, brand: brand || "EMPTY" });
   } catch (e: any) {
     console.error("Enrich error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
