@@ -1,21 +1,11 @@
 "use client";
 
-export default function DashboardClient({ initialUserId }: { initialUserId: string | null }) {
 import { useEffect, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SyncNowButton from "./SyncNowButton";
-
-type DashboardClientProps = {
-  userId: string;
-  days: number;
-};
-
-export default function DashboardClient({ userId, days }: DashboardClientProps) {
-  // rest of your code...
-}
 
 type SummaryRow = {
   campaign_name: string;
@@ -26,14 +16,24 @@ type SummaryRow = {
   acos: number;
 };
 
-export default function DashboardPage() {
+// ✅ Correct order: imports first, then export default function
+export default function DashboardClient({
+  initialUserId,
+}: {
+  initialUserId: string | null;
+}) {
   const supabase = createClientComponentClient();
   const router = useRouter();
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(initialUserId);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryRow[]>([]);
 
+  // Get logged-in user ID if not passed
   useEffect(() => {
+    if (initialUserId) {
+      setLoading(false);
+      return;
+    }
     const getSession = async () => {
       const {
         data: { session },
@@ -43,21 +43,23 @@ export default function DashboardPage() {
         return;
       }
       setUserId(session.user.id);
+      setLoading(false);
     };
     getSession();
-  }, [supabase, router]);
+  }, [supabase, router, initialUserId]);
 
+  // Fetch summary data
   useEffect(() => {
     const fetchSummary = async () => {
       if (!userId) return;
       try {
-        const res = await fetch(`/api/ads/summary?user_id=${userId}`, { cache: "no-store" });
+        const res = await fetch(`/api/ads/summary?user_id=${userId}`, {
+          cache: "no-store",
+        });
         const json = await res.json();
         if (json.ok) setSummary(json.rows || []);
       } catch (err) {
         console.error("Summary fetch error:", err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchSummary();
@@ -66,7 +68,6 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        {/* CSS spinner — no lucide-react needed */}
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
       </div>
     );
