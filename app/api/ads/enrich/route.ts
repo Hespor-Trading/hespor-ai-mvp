@@ -5,9 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const LWA_CLIENT_ID =
-  process.env.ADS_LWA_CLIENT_ID ||
-  process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID ||
-  "";
+  process.env.ADS_LWA_CLIENT_ID || process.env.NEXT_PUBLIC_ADS_LWA_CLIENT_ID || "";
 const LWA_CLIENT_SECRET = process.env.ADS_LWA_CLIENT_SECRET || "";
 
 const REGION_HOSTS = [
@@ -15,6 +13,12 @@ const REGION_HOSTS = [
   { region: "EU", host: "https://advertising-api-eu.amazon.com" },
   { region: "FE", host: "https://advertising-api-fe.amazon.com" },
 ];
+
+function normalizeRegion(input?: string): "NA" | "EU" | "FE" {
+  const r = (input || "").trim().toUpperCase();
+  if (r === "NA" || r === "EU" || r === "FE") return r;
+  throw new Error(`Unsupported region: ${input ?? "(empty)"}`);
+}
 
 async function fetchJSON(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
@@ -60,9 +64,9 @@ export async function GET(req: NextRequest) {
 
     const access_token = await refreshAccessToken(refresh_token);
 
-    // Find a profile (try NA → EU → FE)
+    // Probe profiles in NA → EU → FE until we find one.
     let profile_id: string | null = null;
-    let region: string | null = null;
+    let region: "NA" | "EU" | "FE" | null = null;
     let brand: string | null = null;
 
     for (const { region: r, host } of REGION_HOSTS) {
@@ -76,15 +80,15 @@ export async function GET(req: NextRequest) {
         });
 
         if (Array.isArray(profiles) && profiles.length) {
-          // Favor SP-eligible profiles if present; otherwise first
-          const cand =
+          // pick the first SP-eligible profile if available, else first
+          const picked =
             profiles.find((p: any) => p.profileId && p.accountInfo?.marketplaceStringId) ||
             profiles[0];
 
-          if (cand?.profileId) {
-            profile_id = String(cand.profileId);
-            region = r; // NA | EU | FE
-            brand = cand.accountInfo?.name || cand.profileName || null;
+          if (picked?.profileId) {
+            profile_id = String(picked.profileId);
+            region = r as "NA" | "EU" | "FE";
+            brand = picked.accountInfo?.name || picked.profileName || "EMPTY";
             break;
           }
         }
@@ -97,27 +101,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "no-profiles-returned" });
     }
 
-    const regionLower = region.toLowerCase();
+    // Store UPPERCASE region everywhere (source of truth)
+    const regionUpper = normalizeRegion(region);
 
-    // Update source of truth
     await supabaseAdmin
       .from("amazon_ads_credentials")
       .update({
-        profile_id: profile_id,
-        region: regionLower,
+        profile_id,
+        region: regionUpper,        // UPPERCASE
         brand: brand || "EMPTY",
       })
       .eq("user_id", user_id);
 
-    // Also ensure ads_profiles is populated (so sync works without manual insert)
+    // Ensure ads_profiles is populated so sync works without manual insert
     await supabaseAdmin
       .from("ads_profiles")
       .upsert(
-        { user_id, profile_id, country: regionLower }, // your table uses "country"
+        { user_id, profile_id, country: regionUpper }, // your table uses "country"
         { onConflict: "user_id" }
       );
 
-    return NextResponse.json({ ok: true, user_id, profile_id, region: regionLower, brand: brand || "EMPTY" });
+    return NextResponse.json({ ok: true, user_id, profile_id, region: regionUpper, brand: brand || "EMPTY" });
   } catch (e: any) {
     console.error("Enrich error:", e?.message || e);
     return NextResponse.json({ ok: false, reason: "error", details: e?.message || String(e) });
