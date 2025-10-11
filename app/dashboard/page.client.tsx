@@ -12,6 +12,10 @@ type DashboardClientProps = {
   days: number;
 };
 
+export default function DashboardClient({ userId, days }: DashboardClientProps) {
+  // rest of your code...
+}
+
 type SummaryRow = {
   campaign_name: string;
   clicks: number;
