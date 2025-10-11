@@ -1,100 +1,82 @@
 // lib/ads/reports.ts
-type Region = 'NA' | 'EU' | 'FE'; // expand if you need
-type ReportScope = { profileId: string };
-type ReportStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+import { adsHost, normalizeRegion } from './region';
 
-const ADS_API_BY_REGION: Record<Region, string> = {
-  NA: 'https://advertising-api.amazon.com',
-  EU: 'https://advertising-api-eu.amazon.com',
-  FE: 'https://advertising-api-fe.amazon.com',
-};
+type CreateReportResponse = { reportId: string };
 
-export function baseUrlFor(region: Region) {
-  const url = ADS_API_BY_REGION[region];
-  if (!url) throw new Error(`Unsupported region: ${region}`);
-  return url;
-}
-
-export async function createSearchTermReport(opts: {
+export async function createSearchTermsReport(params: {
   accessToken: string;
-  clientId: string; // use ADS_LWA_CLIENT_ID
-  region: Region;
+  clientId: string;
   profileId: string;
-  startDate: string; // YYYYMMDD
-  endDate: string;   // YYYYMMDD
+  region: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
 }) {
-  const { accessToken, clientId, region, profileId, startDate, endDate } = opts;
+  const host = adsHost(normalizeRegion(params.region));
+  // Path below is the Ads Reporting 3.0 route; if your code already has a constant, reuse it.
+  const url = `${host}/reporting/reports`;
 
-  const url = `${baseUrlFor(region)}/v3/reports`;
+  // Minimum config that works across regions
   const body = {
-    // Sponsored Products search terms (productAds / targets)
     name: 'spSearchTerm',
     configuration: {
       adProduct: 'SPONSORED_PRODUCTS',
       groupBy: ['searchTerm'],
-      timeUnit: 'DAILY',
       columns: [
+        'searchTerm',
+        'keywordText',
+        'matchType',
+        'campaignId',
+        'adGroupId',
         'impressions',
         'clicks',
         'cost',
         'purchases14d',
-        'sales14d',
-        'attributedSales14d',
+        'sales14d'
       ],
-      reportTypeId: 'spSearchTerm',
-      filters: [],
-      dateRange: { startDate, endDate },
-    },
-    // Required since v3
-    stateFilter: ['ENABLED', 'PAUSED', 'ARCHIVED'],
-    format: 'GZIP_JSON',
-    // optional: scope to the profile
-    scope: { profileId } as ReportScope,
+      reportTypeId: 'spSearchTerm',   // current ID for SP Search Terms
+      timeUnit: 'DAILY',
+      format: 'GZIP_JSON',           // compact; use JSON if you prefer
+      startDate: params.startDate,
+      endDate: params.endDate,
+    }
   };
 
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Amazon-Advertising-API-ClientId': clientId,
-      'Amazon-Advertising-API-Scope': profileId,
+      'Authorization': `Bearer ${params.accessToken}`,
+      'Amazon-Advertising-API-ClientId': params.clientId,
+      'Amazon-Advertising-API-Scope': params.profileId,
       'Content-Type': 'application/json',
-      Accept: 'application/vnd.reports.v3+json',
     },
     body: JSON.stringify(body),
   });
 
-  const text = await res.text();
-  if (!res.ok) throw new Error(`create report failed: ${res.status} ${text}`);
-  return JSON.parse(text) as { reportId: string };
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`create report failed: ${res.status} ${t}`);
+  }
+  return (await res.json()) as CreateReportResponse;
 }
 
-export async function getReportStatus(opts: {
+export async function getReportStatus(params: {
   accessToken: string;
   clientId: string;
-  region: Region;
   profileId: string;
+  region: string;
   reportId: string;
 }) {
-  const { accessToken, clientId, region, profileId, reportId } = opts;
-  const url = `${baseUrlFor(region)}/v3/reports/${reportId}`;
-  const res = await fetch(url, {
+  const host = adsHost(normalizeRegion(params.region));
+  const res = await fetch(`${host}/reporting/reports/${params.reportId}`, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Amazon-Advertising-API-ClientId': clientId,
-      'Amazon-Advertising-API-Scope': profileId,
-      Accept: 'application/vnd.reports.v3+json',
+      'Authorization': `Bearer ${params.accessToken}`,
+      'Amazon-Advertising-API-ClientId': params.clientId,
+      'Amazon-Advertising-API-Scope': params.profileId,
     },
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`get report status failed: ${res.status} ${text}`);
-  return JSON.parse(text) as { status: ReportStatus; url?: string };
-}
-
-export async function downloadReport(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`download report failed: ${res.status}`);
-  // v3 returns gzip JSON. If your runtime auto-decompresses, parse directly.
-  // If not, add decompression.
-  return (await res.json()) as Array<Record<string, unknown>>;
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`get report failed: ${res.status} ${t}`);
+  }
+  return await res.json(); // { status: 'PENDING'|'COMPLETED'|'FAILURE', url?: string }
 }
