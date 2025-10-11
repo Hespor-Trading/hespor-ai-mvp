@@ -1,18 +1,15 @@
 // app/dashboard/page.tsx
-import dynamicImport from "next/dynamic";
-import { cookies } from "next/headers";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import DashboardClient from './page.client';
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
-
-const DashboardClient = dynamicImport(() => import("./page.client"), { ssr: false });
+// TODO: replace this with your real auth/session lookup
+async function getUserId(): Promise<string> {
+  // Example: if you already expose user id somewhere on server, return it here.
+  // For now, throw if not implemented.
+  // return (await myAuth()).user.id
+  throw new Error('Implement getUserId() to return the logged-in user id');
+}
 
 export default async function Page() {
-  const supabase = createServerComponentClient({ cookies });
-  const { data } = await supabase.auth.getUser();
-  const userId = data?.user?.id || "";
-
-  return <DashboardClient userId={userId} />;
+  const userId = await getUserId();
+  return <DashboardClient userId={userId} days={30} />;
 }
