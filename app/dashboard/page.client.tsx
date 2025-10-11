@@ -1,5 +1,6 @@
 "use client";
 
+import TopBar from './TopBar';
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
