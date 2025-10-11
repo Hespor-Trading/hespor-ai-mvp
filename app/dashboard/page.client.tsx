@@ -1,5 +1,6 @@
 "use client";
 
+export default function DashboardClient({ initialUserId }: { initialUserId: string | null }) {
 import { useEffect, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
