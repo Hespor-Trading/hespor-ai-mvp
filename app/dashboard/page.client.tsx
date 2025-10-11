@@ -5,7 +5,6 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 import SyncNowButton from "./SyncNowButton";
 
 type SummaryRow = {
@@ -24,7 +23,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryRow[]>([]);
 
-  // ✅ Get logged-in user ID safely
   useEffect(() => {
     const getSession = async () => {
       const {
@@ -39,16 +37,13 @@ export default function DashboardPage() {
     getSession();
   }, [supabase, router]);
 
-  // ✅ Fetch dashboard summary
   useEffect(() => {
     const fetchSummary = async () => {
       if (!userId) return;
       try {
-        const res = await fetch(`/api/ads/summary?user_id=${userId}`);
+        const res = await fetch(`/api/ads/summary?user_id=${userId}`, { cache: "no-store" });
         const json = await res.json();
-        if (json.ok) {
-          setSummary(json.rows || []);
-        }
+        if (json.ok) setSummary(json.rows || []);
       } catch (err) {
         console.error("Summary fetch error:", err);
       } finally {
@@ -61,7 +56,8 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin h-6 w-6 text-emerald-600" />
+        {/* CSS spinner — no lucide-react needed */}
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
       </div>
     );
   }
@@ -90,8 +86,7 @@ export default function DashboardPage() {
       {summary.length === 0 ? (
         <Card className="border border-gray-200 shadow-sm">
           <CardContent className="text-gray-600 p-6 text-center">
-            No data yet. Click <b>“Sync Now”</b> to fetch your latest Amazon Ads
-            data.
+            No data yet. Click <b>“Sync Now”</b> to fetch your latest Amazon Ads data.
           </CardContent>
         </Card>
       ) : (
@@ -99,18 +94,14 @@ export default function DashboardPage() {
           {summary.map((row, i) => (
             <Card key={i} className="border border-gray-200 shadow-sm">
               <CardContent className="p-4">
-                <h2 className="font-medium text-gray-900">
-                  {row.campaign_name}
-                </h2>
+                <h2 className="font-medium text-gray-900">{row.campaign_name}</h2>
                 <p className="text-sm text-gray-600">
                   {row.clicks} clicks • {row.impressions} impressions
                 </p>
                 <p className="text-sm mt-2">
                   Cost: ${row.cost?.toFixed(2)} | Sales: ${row.sales?.toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-700">
-                  ACOS: {row.acos?.toFixed(2)}%
-                </p>
+                <p className="text-sm text-gray-700">ACOS: {row.acos?.toFixed(2)}%</p>
               </CardContent>
             </Card>
           ))}
