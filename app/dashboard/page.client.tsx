@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SyncNowButton from "./SyncNowButton";
 
+type DashboardClientProps = {
+  userId: string;
+  days: number;
+};
+
 type SummaryRow = {
   campaign_name: string;
   clicks: number;
