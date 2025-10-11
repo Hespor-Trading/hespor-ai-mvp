@@ -1,93 +1,62 @@
 // app/api/ads/sync/searchterms/route.ts
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { db } from "@/lib/db"; // whatever you already use to talk to Supabase
-import { getAccessTokenForUser } from "@/lib/ads/auth"; // you already have this
-import { createSpSearchTermReport } from "@/lib/ads/reports"; // you already have this
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/db';
+import { getUserAdsCredentials, getLWAToken } from '@/lib/ads/auth';
+import { createSearchTermReport } from '@/lib/ads/reports';
+
+const CLIENT_ID = process.env.ADS_LWA_CLIENT_ID!;
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url);
-    const user_id = url.searchParams.get("user_id");
-    if (!user_id) return NextResponse.json({ ok: false, reason: "missing user_id" }, { status: 400 });
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('user_id')!;
+    const days = Number(searchParams.get('days') ?? '30');
 
-    // days must be <= 30 (Amazon limit)
-    const daysParam = Number(url.searchParams.get("days") || 30);
-    const days = Number.isFinite(daysParam) ? Math.min(daysParam, 30) : 30;
+    if (!userId) return NextResponse.json({ ok: false, reason: 'missing-user' }, { status: 400 });
 
-    // get profile + country for this user (from ads_profiles table)
-    const { data: profileRow, error: profileErr } = await db
-      .from("ads_profiles")
-      .select("profile_id, country")
-      .eq("user_id", user_id)
-      .maybeSingle();
-
-    if (profileErr) throw profileErr;
-    if (!profileRow) {
-      return NextResponse.json({ ok: false, reason: "no-ads-profile", details: "Run /api/ads/enrich first" }, { status: 400 });
+    const creds = await getUserAdsCredentials(userId);
+    if (!creds?.refresh_token) {
+      return NextResponse.json({ ok: false, reason: 'no-refresh-token-for-user' }, { status: 400 });
+    }
+    if (!creds.profile_id) {
+      return NextResponse.json({ ok: false, reason: 'no-profile-id' }, { status: 400 });
     }
 
-    const profile_id: string = profileRow.profile_id;
-    const country: string = profileRow.country?.toUpperCase?.() || "NA";
+    const region = (creds.region ?? 'NA') as 'NA' | 'EU' | 'FE';
 
-    // get LWA access token for this user
-    const accessToken = await getAccessTokenForUser(user_id);
-    if (!accessToken) {
-      return NextResponse.json({ ok: false, reason: "no-access-token" }, { status: 400 });
-    }
-
-    // Build date range (last N days, inclusive)
+    // date window (max 31 days per Amazon)
     const end = new Date();
     const start = new Date();
-    start.setDate(end.getDate() - (days - 1)); // e.g. 30 days window
+    start.setDate(end.getDate() - Math.min(Math.max(days, 1), 31));
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const startDate = fmt(start);
+    const endDate = fmt(end);
 
-    const yyyy_mm_dd = (d: Date) =>
-      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    const token = await getLWAToken(creds.refresh_token);
 
-    const startDate = yyyy_mm_dd(start);
-    const endDate = yyyy_mm_dd(end);
-
-    // Create the report (DO NOT POLL HERE)
-    const reportId = await createSpSearchTermReport({
-      accessToken,
-      profileId: profile_id,
-      region: country, // "NA" / "EU" / "FE"
-      config: {
-        name: `sp-searchterms-${Date.now()}`,
-        startDate,
-        endDate,
-        timeUnit: "DAILY",
-        // Allowed for spSearchTerm:
-        groupBy: ["searchTerm"],
-        columns: [
-          "date",
-          "campaignId",
-          "campaignName",
-          "adGroupId",
-          "adGroupName",
-          "keywordText",
-          "matchType",
-          "searchTerm",
-          "impressions",
-          "clicks",
-          "cost",
-          "purchases14d",
-          "sales14d"
-        ],
-        adProduct: "SPONSORED_PRODUCTS",
-        reportTypeId: "spSearchTerm",
-        // Amazon requires report format if supported
-        format: "GZIP_JSON"
-      }
+    const { reportId } = await createSearchTermReport({
+      accessToken: token.access_token,
+      clientId: CLIENT_ID,
+      region,
+      profileId: creds.profile_id,
+      startDate,
+      endDate,
     });
 
-    if (!reportId) {
-      return NextResponse.json({ ok: false, reason: "failed-to-create-report" }, { status: 500 });
-    }
+    // optional: store a pointer in DB (events table) for polling
+    const db = createClient();
+    await db.from('events').insert({
+      user_id: userId,
+      type: 'ads_searchterms_requested',
+      payload: { reportId },
+    });
 
-    // Immediately return the reportId (client will poll /api/ads/report)
-    return NextResponse.json({ ok: true, reportId, days, startDate, endDate });
+    return NextResponse.json({ ok: true, reportId });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, reason: "error", details: String(err?.message || err) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, reason: 'error', details: String(err?.message ?? err) },
+      { status: 500 }
+    );
   }
 }
