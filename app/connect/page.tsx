@@ -1,10 +1,6 @@
-import NextDynamic from "next/dynamic";
+import ConnectClient from "./page.client";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-const Client = NextDynamic(() => import("./Client"), { ssr: false });
-
 export default function Page() {
-  return <Client />;
+  return <ConnectClient />;
 }
