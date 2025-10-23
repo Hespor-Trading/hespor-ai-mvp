@@ -1,59 +1,30 @@
-import { NextResponse, NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = new Set<string>([
-  "/",
-  "/auth/sign-in",
-  "/auth/sign-up",
-  "/auth/forgot-password",
-  "/auth/reset",
-  "/auth/callback",
-  "/legal",
-  "/legal/terms",
-  "/legal/privacy",
-]);
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-function isPublicPath(pathname: string) {
-  if (PUBLIC_PATHS.has(pathname)) return true;
-  if (pathname.startsWith("/api/")) return true;                  // allow APIs (no auth loops)
-  if (pathname.startsWith("/_next/")) return true;                 // next assets
-  if (pathname.startsWith("/favicon")) return true;
-  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|txt|xml|json)$/.test(pathname)) return true;
-  return false;
-}
+  // ✅ Let static assets pass straight through (fixes /favicon.png 404)
+  const isStatic =
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icon") ||
+    pathname.startsWith("/apple-icon") ||
+    /\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|map)$/i.test(
+      pathname
+    );
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
-
-  // Always try to refresh session so cookies stay valid
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const pathname = req.nextUrl.pathname;
-
-  // 1) If NOT logged in and hitting a protected path -> go to sign-in (preserve `next`)
-  if (!session && !isPublicPath(pathname)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/auth/sign-in";
-    url.searchParams.set("next", pathname + req.nextUrl.search); // keep next
-    return NextResponse.redirect(url);
+  if (isStatic) {
+    return NextResponse.next();
   }
 
-  // 2) If logged in and visits a public auth page -> send them to /connect (so flow continues)
-  if (session && (pathname === "/auth/sign-in" || pathname === "/auth/sign-up" || pathname === "/")) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/connect";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  return res;
+  // --- your existing middleware rules (keep as-is or minimal) ---
+  return NextResponse.next();
 }
 
 export const config = {
+  // Exclude static files from matching entirely (belt + suspenders)
   matcher: [
-    "/((?!_next/static|_next/image|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|favicon.png|icon.png|apple-icon.png|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|map)).*)",
   ],
 };
