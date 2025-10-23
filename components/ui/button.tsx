@@ -7,39 +7,35 @@ function cn(...parts: Array<string | undefined | false | null>) {
   return parts.filter(Boolean).join(" ");
 }
 
-/** style maps (similar to shadcn defaults) */
-const VARIANT: Record<
-  NonNullable<ButtonProps["variant"]>,
-  string
-> = {
-  default:
-    "bg-emerald-600 text-white hover:bg-emerald-700",
-  secondary:
-    "bg-gray-100 text-gray-900 hover:bg-gray-200",
+/** style maps (define first, then use their keys for types) */
+const VARIANT = {
+  default: "bg-emerald-600 text-white hover:bg-emerald-700",
+  secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
   outline:
     "border border-gray-300 bg-transparent hover:bg-gray-50 text-gray-900",
-  ghost:
-    "bg-transparent hover:bg-gray-100 text-gray-900",
+  ghost: "bg-transparent hover:bg-gray-100 text-gray-900",
   link:
     "bg-transparent underline underline-offset-4 text-emerald-700 hover:text-emerald-800",
-  destructive:
-    "bg-red-600 text-white hover:bg-red-700",
-};
+  destructive: "bg-red-600 text-white hover:bg-red-700",
+} as const;
 
-const SIZE: Record<NonNullable<ButtonProps["size"]>, string> = {
+const SIZE = {
   default: "h-10 px-4 py-2",
   sm: "h-9 rounded-md px-3",
   lg: "h-11 rounded-md px-8",
   icon: "h-10 w-10",
-};
+} as const;
+
+type VariantKey = keyof typeof VARIANT;
+type SizeKey = keyof typeof SIZE;
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** visual variants */
-  variant?: keyof typeof VARIANT;
-  size?: keyof typeof SIZE;
+  variant?: VariantKey;
+  size?: SizeKey;
   /**
-   * When true, render the styles onto the *child* element (e.g. a <Link>).
+   * When true, render styles onto the *child* element (e.g. a <Link>).
    * Usage: <Button asChild><a href="/x">Go</a></Button>
    */
   asChild?: boolean;
@@ -50,7 +46,7 @@ export interface ButtonProps
  * If `asChild` is true and the child is a valid React element, we clone it and
  * merge className/disabled/aria props so routing semantics are preserved.
  */
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+export const Button = React.forwardRef<any, ButtonProps>(
   (
     {
       className,
@@ -71,9 +67,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     if (asChild && React.isValidElement(children)) {
       return React.cloneElement(children as React.ReactElement, {
         className: cn((children as any).props?.className, classes),
+        ref,
         "aria-disabled": disabled ? true : undefined,
         ...(disabled ? { tabIndex: -1 } : {}),
-        // keep all original child props; rest are irrelevant for non-button nodes
       });
     }
 
