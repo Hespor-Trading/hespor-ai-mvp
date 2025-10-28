@@ -15,13 +15,18 @@ const schema = z.object({
   acceptedLegal: z.literal(true),
 });
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL!; // e.g. https://app.hespor.com
+// Read sensitive envs at request time to avoid build-time failures
 
 export async function POST(req: Request) {
   try {
+    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL; // e.g. https://app.hespor.com
+    if (!SUPABASE_URL || !ANON || !SERVICE_ROLE || !APP_URL) {
+      return new NextResponse("Environment not configured", { status: 500 });
+    }
+
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {

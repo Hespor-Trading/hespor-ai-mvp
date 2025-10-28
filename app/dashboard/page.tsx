@@ -2,6 +2,8 @@ import DashboardClient from "./page.client";
 import { cookies } from "next/headers";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 
+export const dynamic = "force-dynamic";
+
 async function getUserId() {
   const supabase = createServerComponentClient({ cookies });
   const {
