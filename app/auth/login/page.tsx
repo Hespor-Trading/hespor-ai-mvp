@@ -66,16 +66,23 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        // Ensure full-page redirect behavior
+        skipBrowserRedirect: false,
       },
     })
 
     if (error) {
       setError(error.message)
       setLoading(false)
+      return
+    }
+
+    if (data?.url) {
+      window.location.href = data.url
     }
   }
 
