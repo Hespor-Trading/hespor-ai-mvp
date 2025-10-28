@@ -146,9 +146,8 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Input */}
-        <form
-          onSubmit={(e) => e.preventDefault()}
+        {/* Input (static UI, no client handlers in Server Component) */}
+        <div
           style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", marginTop: 10 }}
         >
           <input
@@ -162,7 +161,7 @@ export default function Page() {
             }}
           />
           <button
-            type="submit"
+            type="button"
             style={{
               background: GREEN,
               color: "#052e2b",
@@ -175,7 +174,7 @@ export default function Page() {
           >
             Send
           </button>
-        </form>
+        </div>
       </section>
     </main>
   );
