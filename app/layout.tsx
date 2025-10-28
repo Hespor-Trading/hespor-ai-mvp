@@ -1,3 +1,7 @@
+import './globals.css';
+import type { Metadata } from 'next';
+import React from 'react';
+
 export const metadata: Metadata = {
   title: "HESPOR – AI Advertising Engine for Amazon & E-commerce Sellers",
   description:
@@ -11,3 +15,15 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL("https://hespor.com"),
 };
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
