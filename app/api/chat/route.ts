@@ -1,65 +1,142 @@
-import { NextRequest } from "next/server";
-import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
+import { ensureConversation, addMessage, getMessages } from "@/lib/db"
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = "edge"
 
-export async function POST(req: NextRequest) {
-  // Lazily instantiate clients at request-time to avoid build-time env requirements
-  if (!process.env.OPENAI_API_KEY) {
-    return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return new Response(JSON.stringify({ error: "Supabase environment not configured" }), { status: 500 });
-  }
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const sbAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const { userId, message } = await req.json();
+export async function POST(req: Request) {
+  try {
+    const { prompt, conversationId } = await req.json()
 
-  // simple weekly quota (free: 10)
-  const today = new Date();
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay()); // Sun week start
-  const week = weekStart.toISOString().slice(0,10);
-
-  const { data: row } = await sbAdmin.from("chat_usage").select("*").eq("user_id", userId).maybeSingle();
-
-  if (!row) {
-    await sbAdmin.from("chat_usage").insert({ user_id: userId, week_start: week, used: 0 });
-  } else {
-    // reset if new week
-    if (row.week_start !== week) {
-      await sbAdmin.from("chat_usage").update({ week_start: week, used: 0 }).eq("user_id", userId);
+    if (!prompt) {
+      return NextResponse.json({ error: "No prompt provided" }, { status: 400 })
     }
+
+    // Get authenticated user
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      },
+    )
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Ensure conversation exists or use provided one
+    const activeConversationId = conversationId || (await ensureConversation(user.id))
+
+    // Add user message to database
+    await addMessage(activeConversationId, "user", prompt)
+
+    // Get conversation history for context
+    const messages = await getMessages(activeConversationId)
+    const conversationHistory = messages.map((msg) => ({
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+    }))
+
+    // Call OpenAI API
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        stream: true,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are Hespor AI, an intelligent Amazon PPC assistant. You help sellers optimize their advertising campaigns, analyze data, and make data-driven decisions. Be helpful, concise, and actionable in your responses.",
+          },
+          ...conversationHistory,
+        ],
+      }),
+    })
+
+    if (!openaiResponse.ok) {
+      const error = await openaiResponse.text()
+      console.error("[v0] OpenAI API error:", error)
+      return NextResponse.json({ error: "Failed to get response from AI" }, { status: 500 })
+    }
+
+    // Stream the response
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
+    let fullResponse = ""
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = openaiResponse.body?.getReader()
+        if (!reader) {
+          controller.close()
+          return
+        }
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            const chunk = decoder.decode(value)
+            const lines = chunk.split("\n").filter((line) => line.trim() !== "")
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6)
+                if (data === "[DONE]") continue
+
+                try {
+                  const parsed = JSON.parse(data)
+                  const content = parsed.choices?.[0]?.delta?.content
+
+                  if (content) {
+                    fullResponse += content
+                    controller.enqueue(encoder.encode(content))
+                  }
+                } catch (e) {
+                  console.error("[v0] Error parsing SSE data:", e)
+                }
+              }
+            }
+          }
+
+          // Save assistant response to database
+          if (fullResponse) {
+            await addMessage(activeConversationId, "assistant", fullResponse)
+          }
+
+          controller.close()
+        } catch (error) {
+          console.error("[v0] Stream error:", error)
+          controller.error(error)
+        }
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Conversation-Id": activeConversationId,
+      },
+    })
+  } catch (error: any) {
+    console.error("[v0] Chat API error:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
-
-  const { data: usage } = await sbAdmin.from("chat_usage").select("*").eq("user_id", userId).maybeSingle();
-
-  // check plan for unlimited
-  const { data: prof } = await sbAdmin.from("profiles").select("plan").eq("id", userId).maybeSingle();
-  const isPro = prof?.plan === "pro";
-  if (!isPro && (usage?.used ?? 0) >= 10) {
-    return new Response(JSON.stringify({ error: "Free limit reached (10 chats/week). Upgrade to continue." }), { status: 402 });
-  }
-
-  // TODO: fetch recent Amazon stats for context (after your OAuth is fully wired)
-  const system = `You are HESPOR AI. Be concise and practical. If data is missing, say so.`;
-
-  const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: message }
-    ],
-  });
-
-  // increment usage if not pro
-  if (!isPro) {
-    await sbAdmin.rpc("noop"); // placeholder to keep connection warm
-    await sbAdmin.from("chat_usage").update({ used: (usage?.used ?? 0) + 1, updated_at: new Date().toISOString() }).eq("user_id", userId);
-  }
-
-  const text = completion.choices[0]?.message?.content ?? "No answer.";
-  return new Response(JSON.stringify({ text }));
 }
