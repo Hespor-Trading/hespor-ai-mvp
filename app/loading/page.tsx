@@ -27,7 +27,7 @@ export default function LoadingPage() {
 
         if (!isActive || hasRedirectedRef.current) return
 
-        if (data?.status === "connected" && data?.integration?.is_fully_connected) {
+        if (data?.status === "ready") {
           hasRedirectedRef.current = true
           router.replace("/dashboard")
         } else if (data?.status === "missing" || data?.status === "partial") {

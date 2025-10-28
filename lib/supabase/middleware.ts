@@ -51,6 +51,13 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Require auth for authorize and loading pages
+  if ((request.nextUrl.pathname === "/authorize" || request.nextUrl.pathname.startsWith("/loading")) && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/auth/login"
+    return NextResponse.redirect(url)
+  }
+
   if (request.nextUrl.pathname.startsWith("/onboarding") && user) {
     const { data: integration } = await supabase
       .from("amazon_integrations")
@@ -59,6 +66,21 @@ export async function updateSession(request: NextRequest) {
       .single()
 
     // If fully connected, redirect to dashboard
+    if (integration?.is_fully_connected) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/dashboard"
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // If fully connected, skip authorize/loading
+  if (user && (request.nextUrl.pathname === "/authorize" || request.nextUrl.pathname.startsWith("/loading"))) {
+    const { data: integration } = await supabase
+      .from("amazon_integrations")
+      .select("is_fully_connected")
+      .eq("user_id", user.id)
+      .single()
+
     if (integration?.is_fully_connected) {
       const url = request.nextUrl.clone()
       url.pathname = "/dashboard"
