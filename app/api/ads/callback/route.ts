@@ -133,6 +133,19 @@ export async function GET(req: Request) {
     return back(req.url, "save_failed", upsertErr.message);
   }
 
-  // --- 8) Success → dashboard ---
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+  // --- 8) Fire-and-forget: kick off initial sync if idle/error ---
+  try {
+    const base = new URL(req.url).origin;
+    // do not await
+    fetch(`${base}/api/start-initial-sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id }),
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+
+  // --- 9) Success → app dashboard ---
+  return NextResponse.redirect(new URL("/app", req.url));
 }

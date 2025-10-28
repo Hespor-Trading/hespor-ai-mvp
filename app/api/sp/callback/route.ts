@@ -65,7 +65,17 @@ export async function GET(req: Request) {
       return NextResponse.redirect(`${base}/connect?sp=error&msg=${encodeURIComponent(dberr.message)}`);
     }
 
-    return NextResponse.redirect(`${base}/connect?sp=ok`);
+    // Fire-and-forget: start initial sync if idle
+    try {
+      // do not await
+      fetch(`${base}/api/start-initial-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      }).catch(() => {});
+    } catch {}
+
+    return NextResponse.redirect(`${base}/app`);
   } catch (e: any) {
     return NextResponse.redirect(`${base}/connect?sp=error&msg=${encodeURIComponent(e?.message || "exception")}`);
   }
