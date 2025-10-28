@@ -1,12 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseBrowser } from "@/lib/supabase";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -19,6 +15,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     (async () => {
+      const supabase = supabaseBrowser();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase
@@ -39,6 +36,7 @@ export default function ProfilePage() {
   }, []);
 
   async function save() {
+    const supabase = supabaseBrowser();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("Not signed in");
     const { error } = await supabase.from("profiles").upsert({

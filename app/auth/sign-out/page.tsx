@@ -1,17 +1,14 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseBrowser } from "@/lib/supabase";
 
 export default function SignOutPage() {
   useEffect(() => {
     (async () => {
       try {
+        const supabase = supabaseBrowser();
         await supabase.auth.signOut();
       } catch {}
       // Redirect to marketing site per your request
