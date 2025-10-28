@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import Chat from "@/app/components/Chat";
 import { Card, CardContent } from "@/components/ui/card";
 import SyncNowButton from "./SyncNowButton";
 
@@ -19,8 +20,10 @@ type SummaryRow = {
 // ✅ Correct order: imports first, then export default function
 export default function DashboardClient({
   initialUserId,
+  plan = "free",
 }: {
   initialUserId: string | null;
+  plan?: string;
 }) {
   const supabase = createClientComponentClient();
   const router = useRouter();
@@ -118,6 +121,40 @@ export default function DashboardClient({
           ))}
         </div>
       )}
+
+      {/* Automation gating */}
+      <Card className="border border-gray-200 shadow-sm">
+        <CardContent className="p-5 flex items-center justify-between">
+          <div>
+            <div className="font-medium">Automation Engine</div>
+            <div className="text-sm text-gray-600">Apply winning actions automatically.</div>
+          </div>
+          {plan === "pro" ? (
+            <button
+              onClick={async () => { await fetch('/api/automation/enable', { method: 'POST' }); }}
+              className="rounded-lg bg-emerald-600 text-white px-4 py-2"
+            >
+              Enable
+            </button>
+          ) : (
+            <button
+              onClick={() => { window.location.href = '/subscription'; }}
+              className="rounded-lg bg-gray-200 text-gray-800 px-4 py-2"
+            >
+              Upgrade to enable
+            </button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Chat panel (available on Free) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="border border-gray-200 shadow-sm md:col-span-2">
+          <CardContent className="p-0 h-[420px]">
+            <Chat />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
