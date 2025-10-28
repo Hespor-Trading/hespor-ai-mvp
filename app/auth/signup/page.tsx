@@ -33,7 +33,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           full_name: fullName,
         },
@@ -53,16 +53,22 @@ export default function SignupPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        skipBrowserRedirect: false,
       },
     })
 
     if (error) {
       setError(error.message)
       setLoading(false)
+      return
+    }
+
+    if (data?.url) {
+      window.location.href = data.url
     }
   }
 
