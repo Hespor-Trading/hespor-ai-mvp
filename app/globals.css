@@ -4,40 +4,44 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color scheme with Hespor turquoise brand color */
+  /* HESPOR brand: Primary #0C2D57 (dark blue), Accent #FFC436 (amber) */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.68 0.17 180); /* Turquoise brand color */
+  /* #0C2D57 approximated in OKLCH for consistent theming */
+  --primary: color(display-p3 0.047 0.161 0.341);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.145 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.75 0.15 280); /* Purple accent */
-  --accent-foreground: oklch(1 0 0);
+  /* #FFC436 accent */
+  --accent: color(display-p3 1 0.77 0.21);
+  --accent-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.68 0.17 180);
-  --chart-1: oklch(0.68 0.17 180);
-  --chart-2: oklch(0.75 0.15 280);
+  --ring: color(display-p3 0.047 0.161 0.341);
+  /* Charts lean on brand tones */
+  --chart-1: color(display-p3 0.047 0.161 0.341);
+  --chart-2: color(display-p3 1 0.77 0.21);
   --chart-3: oklch(0.6 0.118 184.704);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  /* Roundness for buttons/cards */
+  --radius: 0.75rem; /* ~rounded-xl */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: color(display-p3 0.047 0.161 0.341);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: color(display-p3 1 0.77 0.21 / 0.1);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: color(display-p3 0.047 0.161 0.341 / 0.4);
 }
 
 .dark {
@@ -47,29 +51,29 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.18 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.68 0.17 180);
-  --primary-foreground: oklch(0.145 0 0);
+  --primary: color(display-p3 0.188 0.294 0.435); /* slightly lighter in dark */
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.75 0.15 280);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: color(display-p3 1 0.8 0.28);
+  --accent-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
-  --ring: oklch(0.68 0.17 180);
-  --chart-1: oklch(0.68 0.17 180);
-  --chart-2: oklch(0.75 0.15 280);
+  --ring: color(display-p3 0.188 0.294 0.435);
+  --chart-1: color(display-p3 0.188 0.294 0.435);
+  --chart-2: color(display-p3 1 0.8 0.28);
   --chart-3: oklch(0.696 0.17 162.48);
   --chart-4: oklch(0.769 0.188 70.08);
   --chart-5: oklch(0.627 0.265 303.9);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: color(display-p3 0.188 0.294 0.435);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: color(display-p3 1 0.8 0.28 / 0.15);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);

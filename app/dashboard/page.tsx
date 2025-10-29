@@ -26,6 +26,13 @@ export default async function DashboardPage({
     redirect("/onboarding")
   }
 
+  // Fetch integration metadata for last sync time
+  const { data: integrationMeta } = await supabase
+    .from("amazon_integrations")
+    .select("last_synced_at, updated_at")
+    .eq("user_id", user.id)
+    .single()
+
   // Get all conversations
   const conversations = await getConversations(user.id)
 
@@ -59,8 +66,21 @@ export default async function DashboardPage({
       </div>
       <div className="flex flex-1 flex-col">
         <div className="border-b p-4">
-          <h1 className="text-2xl font-bold">Hespor AI Assistant</h1>
-          <p className="text-sm text-muted-foreground">Your Amazon PPC optimization partner</p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">HESPOR AI</h1>
+              <p className="text-sm text-muted-foreground">Your Amazon PPC optimization partner</p>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">Last synced</div>
+              <div className="text-sm font-medium">
+                {integrationMeta?.last_synced_at
+                  ? new Date(integrationMeta.last_synced_at).toLocaleString()
+                  : "Pending first sync"}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Auto-refreshes every 24h</div>
+            </div>
+          </div>
         </div>
         <div className="flex-1 overflow-hidden">
           <ChatInterface conversationId={currentConversationId} initialMessages={messages} />

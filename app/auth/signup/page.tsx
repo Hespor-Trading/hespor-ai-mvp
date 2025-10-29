@@ -33,7 +33,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding`,
         data: {
           full_name: fullName,
         },
@@ -56,7 +56,7 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/authorize`,
         skipBrowserRedirect: false,
       },
     })
@@ -76,8 +76,8 @@ export default function SignupPage() {
     <div className="container flex min-h-[calc(100vh-4rem)] items-center justify-center py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-          <CardDescription>Enter your information to get started with Hespor AI</CardDescription>
+          <CardTitle className="text-2xl font-bold">Create your HESPOR AI account</CardTitle>
+          <CardDescription>Start automating your Amazon PPC in minutes.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
