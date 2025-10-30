@@ -14,7 +14,7 @@ export default function SignUpPage() {
     e.preventDefault(); setBusy(true); setErr(null);
     const { error } = await sb.auth.signUp({
       email, password,
-      options: { emailRedirectTo: `${origin}/auth/callback` }
+      options: { emailRedirectTo: `${origin}/auth/callback?next=/auth/sign-in` }
     });
     setBusy(false);
     if (error) return setErr(error.message);

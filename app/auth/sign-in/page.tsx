@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import { useRouter } from 'next/navigation';
 
@@ -9,6 +9,12 @@ export default function SignInPage() {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null);
   const origin = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL!;
+
+  useEffect(() => {
+    sb.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace('/dashboard');
+    });
+  }, [sb, router]);
 
   const signInWithEmail = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setErr(null);
