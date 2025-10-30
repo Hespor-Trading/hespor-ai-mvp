@@ -318,6 +318,13 @@ export function DynamicProductShowcase() {
     },
   }
 
+  const mobilePositions = {
+    tl: { x: -90, y: -70 },
+    tr: { x: 90, y: -70 },
+    bl: { x: -90, y: 80 },
+    br: { x: 90, y: 80 },
+  }
+
   return (
     <div className="relative flex h-[480px] md:h-[500px] lg:h-[540px] w-full items-center justify-center overflow-visible">
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -357,7 +364,7 @@ export function DynamicProductShowcase() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.25 }}
-            className="relative z-10"
+            className="relative z-20"
           >
             <motion.div
               className="relative h-[280px] w-[280px] md:h-[300px] md:w-[300px] lg:h-[320px] lg:w-[320px]"
@@ -440,18 +447,36 @@ export function DynamicProductShowcase() {
         })}
       </div>
 
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 md:hidden pointer-events-none w-full px-4 pb-4">
-        <div className="grid grid-cols-2 gap-3 max-w-[360px] mx-auto">
-          {metrics.map((m, idx) => (
+      <div className="absolute inset-0 pointer-events-none md:hidden">
+        {metrics.map((m, idx) => {
+          const posKey = ["tl", "tr", "bl", "br"][idx] as "tl" | "tr" | "bl" | "br"
+
+          return (
             <motion.div
               key={m.id}
-              className="pointer-events-auto"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.08, duration: 0.3 }}
+              className="absolute z-30"
+              style={{
+                left: "50%",
+                top: "50%",
+                transform: `translate(calc(-50% + ${mobilePositions[posKey].x}px), calc(-50% + ${mobilePositions[posKey].y}px))`,
+              }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{
+                opacity: 1,
+                y: [-4, 0, -4],
+              }}
+              transition={{
+                opacity: { delay: idx * 0.08, duration: 0.3 },
+                y: {
+                  duration: 5,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                  delay: idx * 0.2,
+                },
+              }}
             >
               <div
-                className="w-full max-w-[160px] rounded-[14px] border border-white/60 bg-white/95 px-3 py-2.5 backdrop-blur-md"
+                className="pointer-events-auto w-[140px] rounded-[14px] border border-white/40 bg-white/92 px-3 py-2.5 backdrop-blur-md"
                 style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}
               >
                 {m.marketplace && (
@@ -464,17 +489,23 @@ export function DynamicProductShowcase() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-medium text-muted-foreground truncate">{m.label}</p>
                     <p className="mt-0.5 text-base font-bold text-foreground">{m.value}</p>
+                    {m.subtext && <p className="mt-1 text-[9px] text-muted-foreground truncate">{m.subtext}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
                     {m.icon === "up" && <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />}
                     {m.icon === "down" && <TrendingDown className="h-3.5 w-3.5 text-red-600" />}
                     {m.icon === "neutral" && <Minus className="h-3.5 w-3.5 text-gray-600" />}
+                    {m.sparkline && (
+                      <div className="text-emerald-600">
+                        <MiniSparkline data={m.sparkline} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </motion.div>
-          ))}
-        </div>
+          )
+        })}
       </div>
     </div>
   )
