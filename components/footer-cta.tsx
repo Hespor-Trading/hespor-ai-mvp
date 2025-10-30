@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
+import Link from "next/link"
 
 export function FooterCta() {
   return (
@@ -23,20 +24,24 @@ export function FooterCta() {
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="h-12 min-w-[200px] bg-[var(--brand-green)] text-base font-semibold text-white hover:bg-[var(--brand-green-dark)] hover:scale-105 transition-transform"
-            >
-              Start Free
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12 min-w-[200px] border-2 text-base font-semibold bg-transparent hover:bg-white/50 hover:scale-105 transition-transform"
-            >
-              Book a Demo
-            </Button>
+            <Link href="/auth/sign-up">
+              <Button
+                size="lg"
+                className="h-12 min-w-[200px] bg-[var(--brand-green)] text-base font-semibold text-white hover:bg-[var(--brand-green-dark)] hover:scale-105 transition-transform"
+              >
+                Start Free
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="/auth/sign-up">
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 min-w-[200px] border-2 text-base font-semibold bg-transparent hover:bg-white/50 hover:scale-105 transition-transform"
+              >
+                Book a Demo
+              </Button>
+            </Link>
           </div>
         </motion.div>
       </div>

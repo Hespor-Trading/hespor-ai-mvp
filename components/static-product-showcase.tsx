@@ -18,7 +18,7 @@ const slides: ProductSlide[] = [
   {
     id: "1",
     name: "Premium Wireless Headphones",
-    image: "/premium-wireless-headphones-product.jpg",
+    image: "/premium-wireless-headphones-product-transparent-ba.jpg",
     revenue: "$2.8M",
     acos: "11.9%",
     trend: "up",
@@ -26,7 +26,7 @@ const slides: ProductSlide[] = [
   {
     id: "2",
     name: "Smart Fitness Tracker",
-    image: "/smart-fitness-tracker-product.jpg",
+    image: "/smart-fitness-tracker-product-transparent-backgrou.jpg",
     revenue: "$4.3M",
     acos: "14.7%",
     trend: "up",
@@ -34,7 +34,7 @@ const slides: ProductSlide[] = [
   {
     id: "3",
     name: "Portable Bluetooth Speaker",
-    image: "/portable-bluetooth-speaker.png",
+    image: "/portable-bluetooth-speaker-product-transparent-bac.jpg",
     revenue: "$1.2M",
     acos: "18.3%",
     trend: "neutral",
@@ -70,12 +70,15 @@ export function StaticProductShowcase() {
         <div className="h-[350px] w-[350px] rounded-full bg-gradient-radial from-[var(--brand-green)]/20 via-[var(--brand-green)]/5 to-transparent blur-2xl" />
       </motion.div>
 
-      {/* Orbiting Ring */}
+      {/* Orbiting Ring with gentle animation */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="orbit-ring h-[380px] w-[380px] rounded-full border-2 border-[var(--brand-green)]/30" />
+        <motion.div
+          className="h-[380px] w-[380px] rounded-full border-2 border-[var(--brand-green)]/30"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 60, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+        />
       </div>
 
-      {/* Product Image */}
       <AnimatePresence mode="wait">
         {isVisible && (
           <motion.div
@@ -85,28 +88,55 @@ export function StaticProductShowcase() {
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
             className="relative z-10"
+            style={{
+              filter: "drop-shadow(0 10px 30px rgba(0, 0, 0, 0.08))",
+            }}
           >
-            <div className="relative h-[300px] w-[300px]">
+            <motion.div
+              className="relative h-[300px] w-[300px]"
+              animate={{
+                y: [0, -10, 0],
+              }}
+              transition={{
+                duration: 6,
+                repeat: Number.POSITIVE_INFINITY,
+                ease: "easeInOut",
+              }}
+            >
               <Image
                 src={currentSlide.image || "/placeholder.svg"}
                 alt={currentSlide.name}
                 fill
-                className="object-contain drop-shadow-2xl"
+                className="object-contain"
+                style={{
+                  filter: "drop-shadow(0 10px 30px rgba(0, 0, 0, 0.08))",
+                }}
               />
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* KPI Cards with Framer Motion animations */}
       <AnimatePresence>
         {isVisible && (
           <>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
+              animate={{
+                opacity: 1,
+                x: 0,
+                y: [0, -5, 0],
+              }}
               exit={{ opacity: 0, x: -20 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
+              transition={{
+                delay: 0.1,
+                duration: 0.3,
+                y: {
+                  duration: 6,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                },
+              }}
             >
               <KpiCard
                 label="Annual Revenue"
@@ -118,9 +148,22 @@ export function StaticProductShowcase() {
 
             <motion.div
               initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
+              animate={{
+                opacity: 1,
+                x: 0,
+                y: [0, 5, 0],
+              }}
               exit={{ opacity: 0, x: 20 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
+              transition={{
+                delay: 0.2,
+                duration: 0.3,
+                y: {
+                  duration: 6,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                  delay: 1,
+                },
+              }}
             >
               <KpiCard
                 label="ACoS"
@@ -132,18 +175,42 @@ export function StaticProductShowcase() {
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={{
+                opacity: 1,
+                y: [0, -5, 0],
+              }}
               exit={{ opacity: 0, y: 20 }}
-              transition={{ delay: 0.3, duration: 0.3 }}
+              transition={{
+                delay: 0.3,
+                duration: 0.3,
+                y: {
+                  duration: 6,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                  delay: 2,
+                },
+              }}
             >
               <KpiCard label="Growth Rate" value="+127%" trend="up" className="absolute bottom-1/4 left-8" />
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={{
+                opacity: 1,
+                y: [0, 5, 0],
+              }}
               exit={{ opacity: 0, y: 20 }}
-              transition={{ delay: 0.4, duration: 0.3 }}
+              transition={{
+                delay: 0.4,
+                duration: 0.3,
+                y: {
+                  duration: 6,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                  delay: 3,
+                },
+              }}
             >
               <KpiCard label="ROAS" value="4.2x" trend="up" className="absolute bottom-1/3 right-8" />
             </motion.div>

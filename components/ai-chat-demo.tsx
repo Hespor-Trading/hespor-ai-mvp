@@ -13,21 +13,19 @@ const chatScripts: Message[][] = [
     { role: "user", content: "What are my top performing keywords this week?" },
     {
       role: "assistant",
-      content:
-        '"drawer organizer", "bamboo divider set", "cutlery tray expandable" — highest ROAS, ACOS between 12%–14%.',
+      content: '"drawer organizer", "bamboo divider set", "cutlery tray expandable" — best ROAS, ACOS 12%–14%.',
     },
   ],
   [
-    { role: "user", content: "What adjustments did the algorithm make yesterday?" },
+    { role: "user", content: "What did the algo change yesterday?" },
     {
       role: "assistant",
-      content:
-        'Raised bids +10% on "drawer organizer" & "cutlery tray"; paused "plastic tray divider"; negated "cheap drawer box" due to 0 conversions.',
+      content: 'Raised bids +10% on "drawer organizer", negated "plastic tray divider" (0 convs).',
     },
   ],
   [
     { role: "user", content: "When are my ads most profitable?" },
-    { role: "assistant", content: "8AM–2PM. Evening spend reduced by −25% via automated dayparting." },
+    { role: "assistant", content: "8AM–2PM — reduced evening bids −25% via automatic dayparting." },
   ],
 ]
 
@@ -124,7 +122,7 @@ export function AiChatDemo() {
             transition={{ delay: 0.5 }}
             className="mt-8 text-center text-sm text-muted-foreground italic"
           >
-            "Live from your Ads Data. Nothing to learn. Just ask."
+            "Live from your Ads Data. Nothing to learn — just ask."
           </motion.p>
         </motion.div>
       </div>

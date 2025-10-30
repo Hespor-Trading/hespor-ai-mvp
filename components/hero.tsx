@@ -1,11 +1,51 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { StaticProductShowcase } from "./static-product-showcase"
-import { ArrowRight, Play } from "lucide-react"
+import { DynamicProductShowcase } from "./dynamic-product-showcase"
+import { ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
+import Link from "next/link"
+import { useEffect, useState } from "react"
+
+const typingWords = ["bids", "budgets", "negatives", "dayparting", "rank", "profitability"]
 
 export function Hero() {
+  const [currentWordIndex, setCurrentWordIndex] = useState(0)
+  const [displayText, setDisplayText] = useState("")
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (prefersReducedMotion) {
+      setDisplayText(typingWords[0])
+      return
+    }
+
+    const currentWord = typingWords[currentWordIndex]
+    const typingSpeed = isDeleting ? 50 : 100
+    const pauseTime = isDeleting ? 500 : 2000
+
+    const timeout = setTimeout(
+      () => {
+        if (!isDeleting && displayText === currentWord) {
+          setTimeout(() => setIsDeleting(true), pauseTime)
+        } else if (isDeleting && displayText === "") {
+          setIsDeleting(false)
+          setCurrentWordIndex((prev) => (prev + 1) % typingWords.length)
+        } else {
+          setDisplayText(
+            isDeleting
+              ? currentWord.substring(0, displayText.length - 1)
+              : currentWord.substring(0, displayText.length + 1),
+          )
+        }
+      },
+      isDeleting && displayText === "" ? 0 : typingSpeed,
+    )
+
+    return () => clearTimeout(timeout)
+  }, [displayText, isDeleting, currentWordIndex])
+
   return (
     <section className="relative overflow-hidden py-20 md:py-32">
       <div className="mx-auto max-w-[1200px] px-6 md:px-6">
@@ -19,11 +59,20 @@ export function Hero() {
           >
             <div className="space-y-4">
               <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
-                Talk to Your Ads. <span className="text-[var(--brand-green)]">Automate the Rest.</span>
+                Talk to Your Ads.{" "}
+                <span className="inline-block">
+                  <span className="bg-gradient-to-r from-[var(--brand-green)] to-emerald-600 bg-clip-text text-transparent">
+                    Automate{" "}
+                    <span className="inline-block min-w-[200px] text-left">
+                      {displayText}
+                      <span className="animate-pulse">|</span>
+                    </span>
+                  </span>
+                </span>
               </h1>
               <p className="text-pretty text-lg leading-relaxed text-muted-foreground md:text-xl">
-                Hespor AI analyzes your Amazon Ads data in real-time and automatically adjusts bids, negatives, and
-                dayparting — while you chat naturally to see why and how.
+                Hespor AI lets you chat with your Amazon data while our algorithm learns and manages bids, budgets, and
+                dayparting for you.
               </p>
             </div>
 
@@ -33,87 +82,24 @@ export function Hero() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
             >
-              <Button
-                size="lg"
-                className="h-12 min-w-[200px] bg-[var(--brand-green)] text-base font-semibold text-white hover:bg-[var(--brand-green-dark)] hover:scale-105 transition-transform"
-              >
-                Start Free — See It in Action
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-12 min-w-[200px] border-2 text-base font-semibold bg-transparent hover:bg-white/50 hover:scale-105 transition-transform"
-              >
-                <Play className="mr-2 h-5 w-5" />
-                Watch Demo
-              </Button>
-            </motion.div>
-
-            <motion.div
-              className="flex flex-wrap items-center gap-6 pt-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-green)]/10">
-                  <svg
-                    className="h-5 w-5 text-[var(--brand-green)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-foreground">Bid Accuracy</div>
-                  <div className="text-xs text-muted-foreground">+28%</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-green)]/10">
-                  <svg
-                    className="h-5 w-5 text-[var(--brand-green)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-foreground">ACOS</div>
-                  <div className="text-xs text-[var(--brand-green)]">14.9% ↓</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-green)]/10">
-                  <svg
-                    className="h-5 w-5 text-[var(--brand-green)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-foreground">ROAS</div>
-                  <div className="text-xs text-[var(--brand-green)]">4.2× ↑</div>
-                </div>
-              </div>
+              <Link href="/auth/sign-up">
+                <Button
+                  size="lg"
+                  className="h-12 min-w-[200px] bg-[var(--brand-green)] text-base font-semibold text-white hover:bg-[var(--brand-green-dark)] hover:scale-105 transition-transform"
+                >
+                  Start Free — No Credit Card
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/auth/login">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 min-w-[200px] border-2 text-base font-semibold bg-transparent hover:bg-white/50 hover:scale-105 transition-transform"
+                >
+                  Sign In
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
 
@@ -124,7 +110,7 @@ export function Hero() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            <StaticProductShowcase />
+            <DynamicProductShowcase />
           </motion.div>
         </div>
       </div>

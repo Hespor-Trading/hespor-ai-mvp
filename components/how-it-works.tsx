@@ -6,23 +6,23 @@ export function HowItWorks() {
   const steps = [
     {
       number: "01",
-      title: "Connect",
-      description: "Link your Amazon Ads & SP-API in seconds.",
+      title: "Connect Amazon Ads",
+      description: "OAuth authorization in seconds.",
     },
     {
       number: "02",
-      title: "Analyze",
-      description: "AI learns 90 days of campaign performance.",
+      title: "Sync 90 days of data",
+      description: "AI analyzes campaign performance history.",
     },
     {
       number: "03",
-      title: "Optimize",
-      description: "Auto-applies bid, budget, and negative keyword updates.",
+      title: "Learn baselines & opportunities",
+      description: "Identifies optimization patterns and wasted spend.",
     },
     {
       number: "04",
-      title: "Chat",
-      description: "Ask live questions and see what the AI has changed, instantly.",
+      title: "Automate — you monitor via chat",
+      description: "Bids, negatives, dayparting run automatically. You ask questions and review changes.",
     },
   ]
 

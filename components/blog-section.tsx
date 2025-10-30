@@ -5,20 +5,18 @@ import { motion } from "framer-motion"
 
 const articles = [
   {
-    title: "Mastering Amazon PPC with AI Automation",
-    description:
-      "Learn how AI-powered automation can transform your Amazon advertising strategy and boost profitability.",
+    title: "AI Automation for Amazon PPC",
+    description: "Understanding AI-driven optimization and how it transforms your advertising strategy.",
     readTime: "8 min read",
   },
   {
-    title: "How Dayparting Improves ROAS and Reduces Waste",
-    description:
-      "Discover the power of time-based bid adjustments and how they can dramatically improve your ad performance.",
+    title: "Top ASIN Optimization Workflows",
+    description: "Scaling strategies for Amazon sellers looking to maximize their product performance.",
     readTime: "6 min read",
   },
   {
-    title: "Ask Your Ads: The Power of Conversational PPC Analytics",
-    description: "Why natural language queries are revolutionizing how sellers interact with their advertising data.",
+    title: "How Chat-Driven Insights Boost ROAS",
+    description: "Learn to use natural language queries to unlock powerful advertising insights.",
     readTime: "7 min read",
   },
 ]
@@ -35,7 +33,7 @@ export function BlogSection() {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl lg:text-5xl">
-            Learning Center
+            Insights from Hespor AI
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
             Expert insights on Amazon PPC automation and AI-driven advertising strategies.

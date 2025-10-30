@@ -6,8 +6,10 @@ import { Features } from "@/components/features"
 import { HowItWorks } from "@/components/how-it-works"
 import { BrandMarquee } from "@/components/brand-marquee"
 import { Pricing } from "@/components/pricing"
-import { LiveResults } from "@/components/live-results"
+import { Testimonials } from "@/components/testimonials"
 import { BlogSection } from "@/components/blog-section"
+import { AmazonComplianceSection } from "@/components/amazon-compliance-section"
+import { FinanceSection } from "@/components/finance-section"
 import { FooterCta } from "@/components/footer-cta"
 import { Footer } from "@/components/footer"
 
@@ -22,8 +24,10 @@ export default function Home() {
         <HowItWorks />
         <BrandMarquee />
         <Pricing />
-        <LiveResults />
+        <Testimonials />
         <BlogSection />
+        <AmazonComplianceSection />
+        <FinanceSection />
         <FooterCta />
       </main>
       <Footer />

@@ -1,38 +1,38 @@
 "use client"
 
-import { Bot, Clock, Lightbulb, Package, MessageSquare, Eye } from "lucide-react"
+import { MessageSquare, TrendingUp, Clock, Zap, Package, Eye } from "lucide-react"
 import { motion } from "framer-motion"
 
 const features = [
   {
-    icon: Bot,
-    title: "AI Bid Optimization",
-    description: "Automatically adjusts keyword bids in real time based on your ACOS targets and performance.",
+    icon: MessageSquare,
+    title: "Chat to Data",
+    description: "Plain-English analysis. Ask anything and get insights instantly.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Gradual Learning",
+    description: "Improves daily from your results. The algorithm adapts from past performance.",
+  },
+  {
+    icon: Zap,
+    title: "Real-Time Bid Engine",
+    description: "Bids & budgets adapt in-flight. Adjusts as results change.",
   },
   {
     icon: Clock,
     title: "Smart Dayparting",
-    description: "Learns your hourly conversion windows and boosts or lowers bids to maximize ROI.",
-  },
-  {
-    icon: Lightbulb,
-    title: "Keyword Intelligence",
-    description: "Promotes winners, negates waste, and prevents duplication automatically.",
+    description: "Hourly bid curves that match conversion windows. Learns when your ads convert best.",
   },
   {
     icon: Package,
-    title: "Inventory Awareness",
-    description: "Pauses ads when ASINs run low on stock, avoiding wasted spend.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Plain-English Chat",
-    description: 'Ask anything — "What keywords wasted money?" or "Where should I increase bids?"',
+    title: "Inventory-Aware Rules",
+    description: "Protects budget on low stock. Pauses ads when inventory is low.",
   },
   {
     icon: Eye,
-    title: "Full Transparency",
-    description: "Every change logged, explained, and reversible.",
+    title: "Transparent Logs & Undo",
+    description: "Every AI change is visible and reversible. See every decision and revert anytime.",
   },
 ]
 
@@ -48,10 +48,10 @@ export function Features() {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl lg:text-5xl">
-            Everything You Need to Automate Amazon PPC
+            Built Different
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
-            Comprehensive AI-powered tools designed specifically for Amazon sellers who want to scale profitably.
+            The features that set Hespor apart from traditional PPC tools.
           </p>
         </motion.div>
 

@@ -7,11 +7,11 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Hespor AI — Amazon Ads Automation with Real-Time AI Chat",
+  title: "Hespor AI — Talk to Your Ads. Automate the Rest.",
   description:
-    "Talk to your ads data. Optimize bids, keywords, and dayparting automatically with Hespor AI — your intelligent PPC automation engine for Amazon sellers.",
+    "Chat with your Amazon Ads data while Hespor's AI engine optimizes bids, budgets, and dayparting automatically. Built for serious sellers.",
   keywords:
-    "Amazon PPC automation, AI ad optimization, bid adjustment, dayparting, keyword harvesting, PPC chat, AI ads management, Amazon advertising SaaS",
+    "amazon ppc automation, ai ads optimization, dayparting, bid adjustment, keyword harvesting, ppc saas, amazon advertising automation, talk to ads data",
   generator: "v0.app",
 }
 

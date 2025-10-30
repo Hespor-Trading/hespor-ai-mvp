@@ -9,7 +9,15 @@ export function Footer() {
       <div className="mx-auto max-w-[1200px] px-6 py-12 md:px-6">
         <div className="grid gap-8 md:grid-cols-4">
           <div className="space-y-4">
-            <Image src="/logo.jpg" alt="HESPOR AI" width={120} height={32} className="h-8 w-auto" />
+            <Link href="/" className="inline-block">
+              <Image
+                src="/images/design-mode/Black%20Logo%20%281%29.png"
+                alt="HESPOR"
+                width={140}
+                height={40}
+                className="h-8 w-auto hover:opacity-80 transition-opacity"
+              />
+            </Link>
             <p className="text-sm text-muted-foreground">AI-powered Amazon PPC automation that talks to you.</p>
           </div>
 
@@ -61,7 +69,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-muted-foreground hover:text-[var(--brand-green)] hover:underline">
+                <Link href="/contact" className="text-muted-foreground hover:text-[var(--brand-green)] hover:underline">
                   Contact Support
                 </Link>
               </li>
@@ -72,7 +80,7 @@ export function Footer() {
             <h3 className="mb-4 text-sm font-semibold text-foreground">Company</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="#" className="text-muted-foreground hover:text-[var(--brand-green)] hover:underline">
+                <Link href="/about" className="text-muted-foreground hover:text-[var(--brand-green)] hover:underline">
                   About Us
                 </Link>
               </li>
@@ -91,12 +99,20 @@ export function Footer() {
                   Terms of Service
                 </Link>
               </li>
+              <li>
+                <Link href="#" className="text-muted-foreground hover:text-[var(--brand-green)] hover:underline">
+                  Data Processing Addendum
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-8 border-t border-border/40 pt-8 text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Hespor AI. All rights reserved.</p>
+          <p className="mt-2 text-xs">
+            Amazon Services Acceptable Use Compliant | Data protected per Amazon's data protection policies
+          </p>
         </div>
       </div>
     </footer>

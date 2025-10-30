@@ -4,29 +4,37 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
 import { motion } from "framer-motion"
+import Link from "next/link"
 
 const plans = [
   {
     name: "Free",
+    tagline: "Try before you automate",
     price: { monthly: 0, annual: 0 },
-    features: ["1 brand", "View analytics", "Limited chat access"],
+    features: ["1 ASIN access", "Read-only analytics", "AI chat demo", "Weekly report"],
   },
   {
     name: "Starter",
-    price: { monthly: 49, annual: 39 },
-    features: ["1 brand", "Auto bid & negatives", "Weekly summary", "Email support"],
+    tagline: "Automation for one ASIN set",
+    price: { monthly: 59, annual: 568 },
+    annualMonthly: 47,
+    features: ["Auto bids & negatives", "Keyword harvesting", "AI chat", "Weekly insights"],
     popular: false,
   },
   {
     name: "Growth",
-    price: { monthly: 299, annual: 239 },
-    features: ["3 brands", "Full automation", "Inventory awareness", "Dayparting", "Priority support"],
+    tagline: "Full power for multi-ASIN brands",
+    price: { monthly: 329, annual: 3158 },
+    annualMonthly: 263,
+    features: ["Dayparting", "Inventory-aware rules", "Change log & undo", "Team access", "Live support"],
     popular: true,
   },
   {
     name: "Scale",
-    price: { monthly: 399, annual: 319 },
-    features: ["5 brands", "API + Slack alerts", "Team access", "Priority support", "Dedicated account manager"],
+    tagline: "Agencies / advanced sellers",
+    price: { monthly: 499, annual: 4790 },
+    annualMonthly: 399,
+    features: ["5 brands", "Slack/API alerts", "Custom rule editor", "Cross-market dashboards", "Priority support"],
   },
 ]
 
@@ -58,6 +66,7 @@ export function Pricing() {
             <button
               onClick={() => setIsAnnual(!isAnnual)}
               className="relative inline-flex h-6 w-11 items-center rounded-full bg-[var(--brand-green)]/20 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand-green)] focus:ring-offset-2"
+              aria-label="Toggle billing period"
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-[var(--brand-green)] transition-transform ${
@@ -93,12 +102,16 @@ export function Pricing() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{plan.tagline}</p>
                 <div className="mt-4 flex items-baseline">
                   <span className="text-4xl font-bold text-foreground">
-                    ${isAnnual ? plan.price.annual : plan.price.monthly}
+                    ${isAnnual && plan.annualMonthly ? plan.annualMonthly : plan.price.monthly}
                   </span>
                   <span className="ml-2 text-muted-foreground">/mo</span>
                 </div>
+                {isAnnual && plan.price.annual > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">${plan.price.annual}/yr</p>
+                )}
               </div>
 
               <ul className="mb-8 space-y-3">
@@ -110,15 +123,17 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <Button
-                className={`w-full ${
-                  plan.popular
-                    ? "bg-[var(--brand-green)] text-white hover:bg-[var(--brand-green-dark)]"
-                    : "bg-transparent border-2 border-border hover:bg-white/50"
-                }`}
-              >
-                Get Started
-              </Button>
+              <Link href="/auth/sign-up">
+                <Button
+                  className={`w-full ${
+                    plan.popular
+                      ? "bg-[var(--brand-green)] text-white hover:bg-[var(--brand-green-dark)]"
+                      : "bg-transparent border-2 border-border hover:bg-white/50"
+                  }`}
+                >
+                  Get Started
+                </Button>
+              </Link>
             </motion.div>
           ))}
         </div>
