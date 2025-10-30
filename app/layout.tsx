@@ -1,66 +1,18 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { SiteHeader } from "@/components/site-header"
-import { SiteFooter } from "@/components/site-footer"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hespor.ai"),
-  title: {
-    default: "Hespor AI - Amazon PPC Automation & Analytics",
-    template: "%s - Hespor AI",
-  },
+  title: "Hespor AI — Amazon Ads Automation with Real-Time AI Chat",
   description:
-    "AI-powered Amazon seller analytics and PPC automation. Talk to your data, learn while executing, and scale your Amazon business with confidence.",
-  keywords: [
-    "Amazon PPC",
-    "Amazon advertising",
-    "PPC automation",
-    "Amazon analytics",
-    "Amazon seller tools",
-    "AI advertising",
-    "Amazon PPC optimization",
-    "Amazon bid management",
-    "Amazon campaign automation",
-    "Amazon seller software",
-  ],
-  authors: [{ name: "Hespor" }],
-  creator: "Hespor",
-  publisher: "Hespor",
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://hespor.ai",
-    title: "Hespor AI - Amazon PPC Automation & Analytics",
-    description: "AI-powered Amazon seller analytics and PPC automation platform",
-    siteName: "Hespor AI",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Hespor AI - Amazon PPC Automation & Analytics",
-    description: "AI-powered Amazon seller analytics and PPC automation platform",
-    creator: "@hespor",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  verification: {
-    google: "your-google-verification-code",
-  },
-    generator: 'v0.app'
+    "Talk to your ads data. Optimize bids, keywords, and dayparting automatically with Hespor AI — your intelligent PPC automation engine for Amazon sellers.",
+  keywords:
+    "Amazon PPC automation, AI ad optimization, bid adjustment, dayparting, keyword harvesting, PPC chat, AI ads management, Amazon advertising SaaS",
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -70,10 +22,48 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
-        <SiteHeader />
-        <main className="min-h-screen">{children}</main>
-        <SiteFooter />
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Hespor AI",
+              applicationCategory: "AdvertisingPlatform",
+              operatingSystem: "Web",
+              offers: [
+                {
+                  "@type": "Offer",
+                  name: "Free",
+                  price: "0",
+                  priceCurrency: "USD",
+                },
+                {
+                  "@type": "Offer",
+                  name: "Starter",
+                  price: "49",
+                  priceCurrency: "USD",
+                },
+                {
+                  "@type": "Offer",
+                  name: "Growth",
+                  price: "299",
+                  priceCurrency: "USD",
+                },
+                {
+                  "@type": "Offer",
+                  name: "Scale",
+                  price: "399",
+                  priceCurrency: "USD",
+                },
+              ],
+            }),
+          }}
+        />
+      </head>
+      <body className={`${inter.className} font-sans antialiased`}>
+        {children}
         <Analytics />
       </body>
     </html>

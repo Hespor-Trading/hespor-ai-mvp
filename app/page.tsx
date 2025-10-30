@@ -1,189 +1,32 @@
-"use client"
+import { SiteShell } from "@/components/site-shell"
+import { Header } from "@/components/header"
+import { Hero } from "@/components/hero"
+import { AiChatDemo } from "@/components/ai-chat-demo"
+import { Features } from "@/components/features"
+import { HowItWorks } from "@/components/how-it-works"
+import { BrandMarquee } from "@/components/brand-marquee"
+import { Pricing } from "@/components/pricing"
+import { LiveResults } from "@/components/live-results"
+import { BlogSection } from "@/components/blog-section"
+import { FooterCta } from "@/components/footer-cta"
+import { Footer } from "@/components/footer"
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ArrowRight, BarChart3, Brain, Zap, Shield, TrendingUp, MessageSquare } from "lucide-react"
-import { HeroShowcase } from "@/components/hero-showcase"
-import { HeroContent } from "@/components/hero-content"
-
-export default function HomePage() {
-  const heroSlides = [
-    {
-      id: "watch",
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-10-29%20204211-EIDmlxhbvYn7yIcqoEfVbjUYbw67Og.png",
-    },
-    {
-      id: "headset",
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-10-29%20204155-VSNFyWszDHPi7YUoiCSGnD5BpipIze.png",
-    },
-    {
-      id: "camera",
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-10-29%20204837-1vSC9oNywKc5kbZuy5lIhuBcAbxfZA.png",
-    },
-    { id: "lamp", image: "/modern-desk-lamp.png" },
-    { id: "bag", image: "/brown-leather-backpack.png" },
-    { id: "speaker", image: "/bluetooth-speaker.jpg" },
-  ]
-
+export default function Home() {
   return (
-    <div className="flex flex-col">
-      {/* Hero Showcase Section */}
-      <section className="relative overflow-hidden">
-        <HeroShowcase slides={heroSlides} intervalMs={3000} hue={280} showNoise />
-        <HeroContent />
-      </section>
-
-      {/* Features Overview */}
-      <section className="py-24">
-        <div className="container">
-          <div className="mx-auto mb-16 max-w-2xl text-center">
-            <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-              Everything You Need to Win on Amazon
-            </h2>
-            <p className="text-pretty text-lg text-muted-foreground leading-relaxed">
-              Powerful tools designed specifically for Amazon sellers who want to scale efficiently.
-            </p>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="border-border/50 transition-all hover:border-primary/50 hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">Conversational Analytics</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Ask questions in plain English. Get instant insights from your Amazon data without complex dashboards.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 transition-all hover:border-primary/50 hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Brain className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">Transparent AI Reasoning</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Understand why the AI makes each decision. Learn PPC strategies while the system executes them for
-                  you.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 transition-all hover:border-primary/50 hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Zap className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">Automated PPC Management</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Set your goals and let AI optimize bids, budgets, and keywords 24/7 for maximum ROI.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 transition-all hover:border-primary/50 hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <BarChart3 className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">Real-Time Insights</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Monitor performance across all your campaigns with live data and actionable recommendations.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 transition-all hover:border-primary/50 hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <TrendingUp className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">Performance Forecasting</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Predict future performance and identify opportunities before your competitors do.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 transition-all hover:border-primary/50 hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Shield className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">Safe & Secure</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Enterprise-grade security with granular controls. Your data and Amazon account are always protected.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof */}
-      <section className="border-y border-border bg-muted/30 py-16">
-        <div className="container">
-          <div className="mx-auto max-w-4xl text-center">
-            <p className="mb-8 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Trusted by Amazon Sellers Worldwide
-            </p>
-            <div className="grid gap-8 md:grid-cols-3">
-              <div>
-                <div className="mb-2 text-4xl font-bold text-primary">$50M+</div>
-                <p className="text-sm text-muted-foreground">Ad Spend Managed</p>
-              </div>
-              <div>
-                <div className="mb-2 text-4xl font-bold text-primary">10K+</div>
-                <p className="text-sm text-muted-foreground">Active Campaigns</p>
-              </div>
-              <div>
-                <div className="mb-2 text-4xl font-bold text-primary">35%</div>
-                <p className="text-sm text-muted-foreground">Average ROAS Improvement</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24">
-        <div className="container">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 p-12 text-center">
-            <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-              Ready to Transform Your Amazon Business?
-            </h2>
-            <p className="mb-8 text-pretty text-lg leading-relaxed text-muted-foreground">
-              Join thousands of sellers who are scaling smarter with AI-powered PPC automation.
-            </p>
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/auth/signup">
-                <Button
-                  size="lg"
-                  className="gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                >
-                  Use Hespor Algorithm
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-purple-300 bg-white/80 backdrop-blur-sm hover:bg-white"
-                >
-                  Talk to Sales
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+    <SiteShell>
+      <Header />
+      <main>
+        <Hero />
+        <AiChatDemo />
+        <Features />
+        <HowItWorks />
+        <BrandMarquee />
+        <Pricing />
+        <LiveResults />
+        <BlogSection />
+        <FooterCta />
+      </main>
+      <Footer />
+    </SiteShell>
   )
 }

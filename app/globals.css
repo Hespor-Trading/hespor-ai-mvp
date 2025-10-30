@@ -4,32 +4,39 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color scheme with Hespor turquoise brand color */
+  /* Added brand green color from logo */
+  --brand-green: #10b981;
+  --brand-green-dark: #059669;
+  --brand-green-light: #d1fae5;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.68 0.17 180); /* Turquoise brand color */
+
+  /* Updated primary to use brand green */
+  --primary: oklch(0.59 0.17 163);
   --primary-foreground: oklch(1 0 0);
+
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.145 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.75 0.15 280); /* Purple accent */
-  --accent-foreground: oklch(1 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(1 0 0);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.68 0.17 180);
-  --chart-1: oklch(0.68 0.17 180);
-  --chart-2: oklch(0.75 0.15 280);
-  --chart-3: oklch(0.6 0.118 184.704);
+  --ring: oklch(0.59 0.17 163);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -43,28 +50,28 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0 0);
+  --card: oklch(0.145 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0 0);
+  --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.68 0.17 180);
-  --primary-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.59 0.17 163);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.75 0.15 280);
+  --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
-  --ring: oklch(0.68 0.17 180);
-  --chart-1: oklch(0.68 0.17 180);
-  --chart-2: oklch(0.75 0.15 280);
-  --chart-3: oklch(0.696 0.17 162.48);
-  --chart-4: oklch(0.769 0.188 70.08);
-  --chart-5: oklch(0.627 0.265 303.9);
+  --ring: oklch(0.59 0.17 163);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -76,7 +83,7 @@
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
+  --font-sans: "Inter", "Geist", "Geist Fallback", ui-sans-serif, system-ui;
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -122,5 +129,95 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Added professional gradient background and animations */
+.site-gradient-bg {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--brand-green) 8%, #ffffff) 0%,
+    #ffffff 55%,
+    color-mix(in oklab, var(--brand-green) 6%, #ffffff) 100%
+  );
+  min-height: 100vh;
+  position: relative;
+}
+
+.site-gradient-bg::before {
+  content: "";
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--brand-green) 3%, transparent) 0%,
+    transparent 50%
+  );
+  animation: blob-float 20s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes blob-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-gradient-bg::before {
+    animation: none;
+  }
+}
+
+/* Added orbit ring animation */
+@keyframes orbit-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.orbit-ring {
+  animation: orbit-ring 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-ring {
+    animation: none;
+  }
+}
+
+/* Added KPI card pop-in animation */
+@keyframes kpi-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.kpi-card-enter {
+  animation: kpi-pop-in 220ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card-enter {
+    animation: none;
   }
 }
