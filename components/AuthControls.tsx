@@ -6,7 +6,7 @@ import { supabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function AuthControls({
   size = 'sm',
-  showEmail = true,
+  showEmail = false,
   signInHref = '/auth/sign-in',
   signUpHref = '/auth/sign-up'
 }: {
