@@ -301,6 +301,22 @@ export function DynamicProductShowcase() {
     "right-4 bottom-8 md:right-16 md:bottom-16", // Bottom-right
   ]
 
+  const getCardSizeClasses = (idx: number) => {
+    if (idx === 1 || idx === 2) {
+      // ACoS (TR) and ROAS (BL) - larger on desktop
+      return "w-[150px] h-[98px] md:w-[260px] md:h-[150px] p-3 md:p-5"
+    }
+    // CTR (TL) and Ad Spend (BR) - standard size
+    return "w-[150px] h-[98px] md:w-[220px] md:h-[130px] p-3 md:p-4"
+  }
+
+  const getValueTextClasses = (idx: number) => {
+    if (idx === 1 || idx === 2) {
+      return "mt-0.5 text-sm md:text-2xl font-bold text-foreground"
+    }
+    return "mt-0.5 text-sm md:text-xl font-bold text-foreground"
+  }
+
   return (
     <section className="w-full py-0">
       <div className="relative mx-auto w-full max-w-[1200px] h-[520px] md:h-[560px] overflow-visible">
@@ -342,7 +358,7 @@ export function DynamicProductShowcase() {
               transition={{ duration: 0.2 }}
               className="absolute inset-0"
             >
-              <div className="absolute z-10 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] md:h-[380px] w-auto">
+              <div className="absolute z-10 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[360px] md:h-[380px] w-auto">
                 <Image
                   src={slide.image || "/placeholder.svg"}
                   alt={slide.name}
@@ -358,7 +374,7 @@ export function DynamicProductShowcase() {
                     key={m.id}
                     role="group"
                     aria-label={m.label}
-                    className={`metric-card pointer-events-auto absolute z-20 ${cardPositions[idx]} w-[150px] h-[98px] md:w-[220px] md:h-[130px] rounded-2xl border border-white/60 bg-white/90 backdrop-blur-md shadow-xl p-3 md:p-4`}
+                    className={`metric-card pointer-events-auto absolute z-20 ${cardPositions[idx]} ${getCardSizeClasses(idx)} rounded-2xl border border-white/60 bg-white/90 backdrop-blur-md shadow-xl`}
                     initial={{ opacity: 0 }}
                     animate={{
                       opacity: 1,
@@ -385,7 +401,7 @@ export function DynamicProductShowcase() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] md:text-xs font-medium text-muted-foreground truncate">{m.label}</p>
-                          <p className="mt-0.5 text-sm md:text-base font-bold text-foreground">{m.value}</p>
+                          <p className={getValueTextClasses(idx)}>{m.value}</p>
                           {m.subtext && (
                             <p className="mt-0.5 text-[8px] md:text-[9px] text-muted-foreground truncate">
                               {m.subtext}
