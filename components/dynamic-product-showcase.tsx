@@ -278,235 +278,139 @@ export function DynamicProductShowcase() {
       setTimeout(() => {
         setI((p) => (p + 1) % slides.length)
         setVisible(true)
-      }, 250)
+      }, 200)
     }, 12000)
     return () => clearInterval(t)
   }, [])
 
   if (!slides || slides.length === 0) {
-    return (
-      <div className="relative flex h-[480px] md:h-[500px] lg:h-[540px] w-full items-center justify-center">
-        Loading...
-      </div>
-    )
+    return <div className="relative flex h-[520px] md:h-[560px] w-full items-center justify-center">Loading...</div>
   }
 
   const slide = slides[i] || slides[0]
   if (!slide) {
-    return (
-      <div className="relative flex h-[480px] md:h-[500px] lg:h-[540px] w-full items-center justify-center">
-        Loading...
-      </div>
-    )
+    return <div className="relative flex h-[520px] md:h-[560px] w-full items-center justify-center">Loading...</div>
   }
 
   const metrics = (slide.metrics?.[0] ?? []).slice(0, 4)
 
-  // Responsive spacing so cards don’t cover the product
-  const positions = {
-    desktop: {
-      tl: { x: -200, y: -125 },
-      tr: { x: 200, y: -125 },
-      bl: { x: -200, y: 135 },
-      br: { x: 200, y: 135 },
-    },
-    tablet: {
-      tl: { x: -170, y: -105 },
-      tr: { x: 170, y: -105 },
-      bl: { x: -170, y: 115 },
-      br: { x: 170, y: 115 },
-    },
-  }
-
-  const mobilePositions = {
-    tl: { x: -90, y: -70 },
-    tr: { x: 90, y: -70 },
-    bl: { x: -90, y: 80 },
-    br: { x: 90, y: 80 },
-  }
+  const cardPositions = [
+    "left-4 top-4 md:left-16 md:top-12", // Top-left
+    "right-4 top-6 md:right-16 md:top-14", // Top-right
+    "left-4 bottom-6 md:left-16 md:bottom-14", // Bottom-left
+    "right-4 bottom-8 md:right-16 md:bottom-16", // Bottom-right
+  ]
 
   return (
-    <div className="relative flex h-[480px] md:h-[500px] lg:h-[540px] w-full items-center justify-center overflow-visible">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        {[0, 1, 2].map((ring) => (
+    <section className="w-full py-0">
+      <div className="relative mx-auto w-full max-w-[1200px] h-[520px] md:h-[560px] overflow-visible">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {[0, 1, 2].map((ring) => (
+            <motion.div
+              key={ring}
+              className="absolute rounded-full border border-emerald-500/20"
+              style={{
+                width: `${320 + ring * 60}px`,
+                height: `${320 + ring * 60}px`,
+              }}
+              animate={{
+                scale: [1, 1.05, 1],
+                opacity: [0.3, 0.5, 0.3],
+              }}
+              transition={{
+                duration: 4 + ring * 0.5,
+                repeat: Number.POSITIVE_INFINITY,
+                ease: "easeInOut",
+                delay: ring * 0.3,
+              }}
+            />
+          ))}
           <motion.div
-            key={ring}
-            className="absolute rounded-full border border-emerald-500/20"
-            style={{
-              width: `${320 + ring * 60}px`,
-              height: `${320 + ring * 60}px`,
-            }}
-            animate={{
-              scale: [1, 1.05, 1],
-              opacity: [0.3, 0.5, 0.3],
-            }}
-            transition={{
-              duration: 4 + ring * 0.5,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
-              delay: ring * 0.3,
-            }}
+            className="h-[420px] w-[420px] rounded-full bg-gradient-radial from-emerald-500/25 via-emerald-500/10 to-transparent blur-3xl"
+            animate={{ opacity: [0.4, 0.6, 0.4] }}
+            transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
           />
-        ))}
-        <motion.div
-          className="h-[420px] w-[420px] rounded-full bg-gradient-radial from-emerald-500/25 via-emerald-500/10 to-transparent blur-3xl"
-          animate={{ opacity: [0.4, 0.6, 0.4] }}
-          transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-        />
-      </div>
+        </div>
 
-      {/* Product */}
-      <AnimatePresence mode="wait">
-        {visible && (
-          <motion.div
-            key={slide.id}
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.25 }}
-            className="relative z-20"
-          >
+        <AnimatePresence mode="wait">
+          {visible && (
             <motion.div
-              className="relative h-[280px] w-[280px] md:h-[300px] md:w-[300px] lg:h-[320px] lg:w-[320px]"
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 10, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+              key={slide.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0"
             >
-              <Image
-                src={slide.image || "/placeholder.svg"}
-                alt={slide.name}
-                fill
-                className="object-contain"
-                style={{ filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.12))" }}
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div className="absolute z-10 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] md:h-[380px] w-auto">
+                <Image
+                  src={slide.image || "/placeholder.svg"}
+                  alt={slide.name}
+                  width={380}
+                  height={380}
+                  className="h-full w-auto object-contain drop-shadow-xl"
+                />
+              </div>
 
-      <div className="absolute inset-0 pointer-events-none hidden md:block">
-        {metrics.map((m, idx) => {
-          const posKey = ["tl", "tr", "bl", "br"][idx] as "tl" | "tr" | "bl" | "br"
+              <div className="pointer-events-none">
+                {metrics.map((m, idx) => (
+                  <motion.section
+                    key={m.id}
+                    role="group"
+                    aria-label={m.label}
+                    className={`metric-card pointer-events-auto absolute z-20 ${cardPositions[idx]} w-[150px] h-[98px] md:w-[220px] md:h-[130px] rounded-2xl border border-white/60 bg-white/90 backdrop-blur-md shadow-xl p-3 md:p-4`}
+                    initial={{ opacity: 0 }}
+                    animate={{
+                      opacity: 1,
+                      y: [-3, 0, -3],
+                    }}
+                    exit={{ opacity: 0 }}
+                    transition={{
+                      opacity: { duration: 0.2, delay: idx * 0.12 },
+                      y: {
+                        duration: 4,
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: "easeInOut",
+                        delay: idx * 0.12,
+                      },
+                    }}
+                  >
+                    <div className="flex flex-col justify-between h-full">
+                      {m.marketplace && (
+                        <div className="mb-1">
+                          <MarketplaceBadge marketplace={m.marketplace} />
+                        </div>
+                      )}
 
-          return (
-            <motion.div
-              key={m.id}
-              className="absolute z-20"
-              style={{
-                left: "50%",
-                top: "50%",
-                transform: `translate(calc(-50% + var(--x)), calc(-50% + var(--y)))`,
-                // @ts-ignore
-                "--x": `${positions.desktop[posKey].x}px`,
-                "--y": `${positions.desktop[posKey].y}px`,
-              }}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{
-                opacity: 1,
-                y: [-6, 0, -6],
-              }}
-              transition={{
-                opacity: { delay: idx * 0.08, duration: 0.3 },
-                y: {
-                  duration: 6,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "easeInOut",
-                  delay: idx * 0.2,
-                },
-              }}
-            >
-              <div
-                className="pointer-events-auto w-[180px] lg:w-[200px] rounded-[14px] border border-white/60 bg-white/95 px-4 py-3 backdrop-blur-md"
-                style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}
-              >
-                {m.marketplace && (
-                  <div className="mb-2">
-                    <MarketplaceBadge marketplace={m.marketplace} />
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-muted-foreground">{m.label}</p>
-                    <p className="mt-0.5 text-lg font-bold text-foreground">{m.value}</p>
-                    {m.subtext && <p className="mt-1 text-[10px] text-muted-foreground">{m.subtext}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {m.icon === "up" && <TrendingUp className="h-4 w-4 text-emerald-600" />}
-                    {m.icon === "down" && <TrendingDown className="h-4 w-4 text-red-600" />}
-                    {m.icon === "neutral" && <Minus className="h-4 w-4 text-gray-600" />}
-                    {m.sparkline && (
-                      <div className="text-emerald-600">
-                        <MiniSparkline data={m.sparkline} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] md:text-xs font-medium text-muted-foreground truncate">{m.label}</p>
+                          <p className="mt-0.5 text-sm md:text-base font-bold text-foreground">{m.value}</p>
+                          {m.subtext && (
+                            <p className="mt-0.5 text-[8px] md:text-[9px] text-muted-foreground truncate">
+                              {m.subtext}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5">
+                          {m.icon === "up" && <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-emerald-600" />}
+                          {m.icon === "down" && <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-600" />}
+                          {m.icon === "neutral" && <Minus className="h-3 w-3 md:h-4 md:w-4 text-gray-600" />}
+                          {m.sparkline && (
+                            <div className="text-emerald-600">
+                              <MiniSparkline data={m.sparkline} />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  </motion.section>
+                ))}
               </div>
             </motion.div>
-          )
-        })}
+          )}
+        </AnimatePresence>
       </div>
-
-      <div className="absolute inset-0 pointer-events-none md:hidden">
-        {metrics.map((m, idx) => {
-          const posKey = ["tl", "tr", "bl", "br"][idx] as "tl" | "tr" | "bl" | "br"
-
-          return (
-            <motion.div
-              key={m.id}
-              className="absolute z-30"
-              style={{
-                left: "50%",
-                top: "50%",
-                transform: `translate(calc(-50% + ${mobilePositions[posKey].x}px), calc(-50% + ${mobilePositions[posKey].y}px))`,
-              }}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{
-                opacity: 1,
-                y: [-4, 0, -4],
-              }}
-              transition={{
-                opacity: { delay: idx * 0.08, duration: 0.3 },
-                y: {
-                  duration: 5,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "easeInOut",
-                  delay: idx * 0.2,
-                },
-              }}
-            >
-              <div
-                className="pointer-events-auto w-[140px] rounded-[14px] border border-white/40 bg-white/92 px-3 py-2.5 backdrop-blur-md"
-                style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}
-              >
-                {m.marketplace && (
-                  <div className="mb-1.5">
-                    <MarketplaceBadge marketplace={m.marketplace} />
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-medium text-muted-foreground truncate">{m.label}</p>
-                    <p className="mt-0.5 text-base font-bold text-foreground">{m.value}</p>
-                    {m.subtext && <p className="mt-1 text-[9px] text-muted-foreground truncate">{m.subtext}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    {m.icon === "up" && <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />}
-                    {m.icon === "down" && <TrendingDown className="h-3.5 w-3.5 text-red-600" />}
-                    {m.icon === "neutral" && <Minus className="h-3.5 w-3.5 text-gray-600" />}
-                    {m.sparkline && (
-                      <div className="text-emerald-600">
-                        <MiniSparkline data={m.sparkline} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )
-        })}
-      </div>
-    </div>
+    </section>
   )
 }
