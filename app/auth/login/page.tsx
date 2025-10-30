@@ -50,7 +50,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
 
@@ -66,23 +66,16 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/authorize`,
-        // Ensure full-page redirect behavior
-        skipBrowserRedirect: false,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
 
     if (error) {
       setError(error.message)
       setLoading(false)
-      return
-    }
-
-    if (data?.url) {
-      window.location.href = data.url
     }
   }
 
@@ -90,8 +83,8 @@ export default function LoginPage() {
     <div className="container flex min-h-[calc(100vh-4rem)] items-center justify-center py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Sign in to HESPOR AI</CardTitle>
-          <CardDescription>Optimize Amazon PPC with AI. Welcome back.</CardDescription>
+          <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
+          <CardDescription>Enter your email and password to access your account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (

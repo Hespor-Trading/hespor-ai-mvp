@@ -1,44 +1,40 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowRight, BarChart3, Brain, Zap, Shield, TrendingUp, MessageSquare } from "lucide-react"
+import { HeroShowcase } from "@/components/hero-showcase"
+import { HeroContent } from "@/components/hero-content"
 
 export default function HomePage() {
+  const heroSlides = [
+    {
+      id: "watch",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-10-29%20204211-EIDmlxhbvYn7yIcqoEfVbjUYbw67Og.png",
+    },
+    {
+      id: "headset",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-10-29%20204155-VSNFyWszDHPi7YUoiCSGnD5BpipIze.png",
+    },
+    {
+      id: "camera",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-10-29%20204837-1vSC9oNywKc5kbZuy5lIhuBcAbxfZA.png",
+    },
+    { id: "lamp", image: "/modern-desk-lamp.png" },
+    { id: "bag", image: "/brown-leather-backpack.png" },
+    { id: "speaker", image: "/bluetooth-speaker.jpg" },
+  ]
+
   return (
     <div className="flex flex-col">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-background to-muted/20">
-        <div className="container py-24 lg:py-32">
-          <div className="mx-auto max-w-4xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-              <Zap className="h-4 w-4" />
-              AI-Powered Amazon PPC Automation
-            </div>
-            <h1 className="mb-6 text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-              Talk to Your Data.
-              <br />
-              <span className="text-primary">Scale Your Amazon Business.</span>
-            </h1>
-            <p className="mb-8 text-pretty text-lg text-muted-foreground leading-relaxed sm:text-xl">
-              Hespor AI combines advanced analytics with intelligent PPC automation. Learn while executing, understand
-              the reasoning behind every decision, and grow your Amazon business with confidence.
-            </p>
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/auth/signup">
-                <Button size="lg" className="gap-2">
-                  Use Hespor Algorithm
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/features">
-                <Button size="lg" variant="outline">
-                  Explore Features
-                </Button>
-              </Link>
-            </div>
-            <p className="mt-4 text-sm text-muted-foreground">No credit card required • 14-day free trial</p>
-          </div>
-        </div>
+      {/* Hero Showcase Section */}
+      <section className="relative overflow-hidden">
+        <HeroShowcase slides={heroSlides} intervalMs={3000} hue={280} showNoise />
+        <HeroContent />
       </section>
 
       {/* Features Overview */}
@@ -162,18 +158,25 @@ export default function HomePage() {
             <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
               Ready to Transform Your Amazon Business?
             </h2>
-            <p className="mb-8 text-pretty text-lg text-muted-foreground leading-relaxed">
+            <p className="mb-8 text-pretty text-lg leading-relaxed text-muted-foreground">
               Join thousands of sellers who are scaling smarter with AI-powered PPC automation.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href="/auth/signup">
-                <Button size="lg" className="gap-2">
+                <Button
+                  size="lg"
+                  className="gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                >
                   Use Hespor Algorithm
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/contact">
-                <Button size="lg" variant="outline">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-purple-300 bg-white/80 backdrop-blur-sm hover:bg-white"
+                >
                   Talk to Sales
                 </Button>
               </Link>

@@ -2,6 +2,23 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  const publicRoutes = ["/", "/features", "/pricing", "/integrations", "/resources", "/about", "/contact", "/legal"]
+
+  const isPublicRoute =
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith("/resources/") ||
+    pathname.startsWith("/legal/") ||
+    pathname.startsWith("/api/contact") ||
+    pathname.startsWith("/auth/")
+
+  // For public routes, just pass through without Supabase
+  if (isPublicRoute) {
+    return NextResponse.next()
+  }
+
+  // Only initialize Supabase for protected routes
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -29,13 +46,13 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (request.nextUrl.pathname.startsWith("/onboarding") && !user) {
+  if (pathname.startsWith("/onboarding") && !user) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
     return NextResponse.redirect(url)
   }
 
-  if (request.nextUrl.pathname.startsWith("/dashboard") && user) {
+  if (pathname.startsWith("/dashboard") && user) {
     // Check if user has completed Amazon integration
     const { data: integration } = await supabase
       .from("amazon_integrations")
@@ -51,14 +68,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Require auth for authorize and loading pages
-  if ((request.nextUrl.pathname === "/authorize" || request.nextUrl.pathname.startsWith("/loading")) && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/auth/login"
-    return NextResponse.redirect(url)
-  }
-
-  if (request.nextUrl.pathname.startsWith("/onboarding") && user) {
+  if (pathname.startsWith("/onboarding") && user) {
     const { data: integration } = await supabase
       .from("amazon_integrations")
       .select("is_fully_connected")
@@ -73,23 +83,8 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // If fully connected, skip authorize/loading
-  if (user && (request.nextUrl.pathname === "/authorize" || request.nextUrl.pathname.startsWith("/loading"))) {
-    const { data: integration } = await supabase
-      .from("amazon_integrations")
-      .select("is_fully_connected")
-      .eq("user_id", user.id)
-      .single()
-
-    if (integration?.is_fully_connected) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/dashboard"
-      return NextResponse.redirect(url)
-    }
-  }
-
   // Protect dashboard routes - require authentication
-  if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
+  if (pathname.startsWith("/dashboard") && !user) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
     return NextResponse.redirect(url)

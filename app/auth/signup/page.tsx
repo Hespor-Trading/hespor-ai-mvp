@@ -33,7 +33,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding`,
+        emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
         data: {
           full_name: fullName,
         },
@@ -53,22 +53,16 @@ export default function SignupPage() {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/authorize`,
-        skipBrowserRedirect: false,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
 
     if (error) {
       setError(error.message)
       setLoading(false)
-      return
-    }
-
-    if (data?.url) {
-      window.location.href = data.url
     }
   }
 
@@ -76,8 +70,8 @@ export default function SignupPage() {
     <div className="container flex min-h-[calc(100vh-4rem)] items-center justify-center py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create your HESPOR AI account</CardTitle>
-          <CardDescription>Start automating your Amazon PPC in minutes.</CardDescription>
+          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+          <CardDescription>Enter your information to get started with Hespor AI</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
