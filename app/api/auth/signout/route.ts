@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabaseServer';
-export const runtime = 'edge';
+import { createClient } from "@/lib/supabase/server"
+import { NextResponse } from "next/server"
+
 export async function POST() {
-  const sb = supabaseServer();
-  await sb.auth.signOut();
-  return NextResponse.json({ ok: true });
+  const supabase = await createClient()
+
+  // Sign out the user
+  await supabase.auth.signOut()
+
+  return NextResponse.json({ success: true })
 }

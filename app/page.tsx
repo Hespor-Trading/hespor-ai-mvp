@@ -1,5 +1,4 @@
 import { SiteShell } from "@/components/site-shell"
-import { Header } from "@/components/header"
 import { Hero } from "@/components/hero"
 import { AiChatDemo } from "@/components/ai-chat-demo"
 import { Features } from "@/components/features"
@@ -16,7 +15,6 @@ import { Footer } from "@/components/footer"
 export default function Home() {
   return (
     <SiteShell>
-      <Header />
       <main>
         <Hero />
         <AiChatDemo />

@@ -1,29 +1,14 @@
 import { redirect } from "next/navigation"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
+import { DashboardShell } from "@/components/dashboard-shell"
 
 export default async function DashboardPage() {
-  const supabase = createServerComponentClient({ cookies })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = await createClient()
 
-  if (!user) {
-    redirect("/auth/sign-in?redirect_to=/dashboard")
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) {
+    redirect("/auth/login")
   }
 
-  try {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
-        <p className="text-sm">Signed in as {user?.email}</p>
-      </div>
-    )
-  } catch (error) {
-    return (
-      <div className="p-6">
-        Temporary issue loading your dashboard. Please refresh.
-      </div>
-    )
-  }
+  return <DashboardShell user={data.user} />
 }
