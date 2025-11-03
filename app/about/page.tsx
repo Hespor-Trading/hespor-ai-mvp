@@ -1,5 +1,4 @@
 import { SiteShell } from "@/components/site-shell"
-import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Shield, Target, Users, Zap } from "lucide-react"
 
@@ -11,7 +10,6 @@ export const metadata = {
 export default function AboutPage() {
   return (
     <SiteShell>
-      <Header />
       <main className="py-20">
         <div className="mx-auto max-w-[900px] px-6">
           <h1 className="mb-6 text-4xl font-bold text-foreground md:text-5xl">About Hespor AI</h1>

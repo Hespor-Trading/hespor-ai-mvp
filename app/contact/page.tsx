@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { SiteShell } from "@/components/site-shell"
-import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +26,6 @@ export default function ContactPage() {
 
   return (
     <SiteShell>
-      <Header />
       <main className="py-20">
         <div className="mx-auto max-w-[1000px] px-6">
           <h1 className="mb-6 text-4xl font-bold text-foreground md:text-5xl">Contact Us</h1>
