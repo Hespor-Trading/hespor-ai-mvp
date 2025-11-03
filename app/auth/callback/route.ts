@@ -4,8 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
-  const next = searchParams.get("next") || "/dashboard"
-
+  const next = searchParams.get("next") || "/connect/amazon"
   const supabase = await createClient()
 
   if (code) {
@@ -17,6 +16,5 @@ export async function GET(request: Request) {
     }
   }
 
-  const redirectUrl = new URL(next, origin)
-  return NextResponse.redirect(redirectUrl.toString())
+  return NextResponse.redirect(new URL(next, origin))
 }
