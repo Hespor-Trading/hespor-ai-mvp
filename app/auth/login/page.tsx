@@ -32,7 +32,7 @@ export default function Page() {
         password,
       })
       if (error) throw error
-      router.push("/connect/amazon")
+      router.push("https://app.hespor.com/connect/amazon")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -172,7 +172,7 @@ export default function Page() {
 
               <div className="mt-4 text-center text-sm">
                 Don&apos;t have an account?{" "}
-                <Link href="/auth/sign-up" className="underline underline-offset-4 text-[var(--brand-green)]">
+                <Link href="https://app.hespor.com/auth/login" className="underline underline-offset-4 text-[var(--brand-green)]">
                   Sign up
                 </Link>
               </div>
