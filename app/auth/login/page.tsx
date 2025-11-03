@@ -32,7 +32,7 @@ export default function Page() {
         password,
       })
       if (error) throw error
-      router.push("/dashboard")
+      router.push("/connect/amazon")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -49,7 +49,7 @@ export default function Page() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/connect/amazon`,
         },
       })
       if (error) throw error
