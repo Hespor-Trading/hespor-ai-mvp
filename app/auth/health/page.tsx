@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 
 type Debug = {
-  env: { NEXT_PUBLIC_SUPABASE_URL: string; NEXT_PUBLIC_SUPABASE_ANON_KEY_prefix: string; projectRef: string }
+  env: { SUPABASE_URL: string; SUPABASE_ANON_KEY_prefix: string; projectRef: string }
   runtime: { origin: string; expectedCallback: string; expectedAmazonNext: string }
 }
 
@@ -30,14 +30,14 @@ export default function AuthHealth() {
     if (!debug) return "#"
     const params = new URLSearchParams({ redirect_to: `${debug.runtime.expectedCallback}?next=/connect/amazon` })
     // Supabase JS uses its own flow, but this gives a clickable sanity check against provider disable/mismatch
-    return `${debug.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/authorize?provider=google&${params.toString()}`
+    return `${debug.env.SUPABASE_URL}/auth/v1/authorize?provider=google&${params.toString()}`
   }, [debug])
 
   if (!debug) return <pre>Loading health?</pre>
 
   const findings: string[] = []
-  if (!debug.env.NEXT_PUBLIC_SUPABASE_URL.includes(".supabase.co")) findings.push("? NEXT_PUBLIC_SUPABASE_URL does not look like a Supabase URL")
-  if (debug.env.projectRef === "unknown") findings.push("? Cannot parse Supabase projectRef from NEXT_PUBLIC_SUPABASE_URL")
+  if (!debug.env.SUPABASE_URL.includes(".supabase.co")) findings.push("? SUPABASE_URL does not look like a Supabase URL")
+  if (debug.env.projectRef === "unknown") findings.push("? Cannot parse Supabase projectRef from SUPABASE_URL")
   if (!debug.runtime.origin.startsWith("http")) findings.push("? Could not detect origin (host/proto headers)")
   if (!debug.runtime.expectedCallback.endsWith("/auth/callback")) findings.push("? Callback path is not /auth/callback")
   if (sessionStatus === "NO_SESSION") findings.push("?? No active session (this is fine on health page)")
