@@ -24,7 +24,7 @@ export function FooterCta() {
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/sign-up">
+            <Link href="https://app.hespor.com/auth/login">
               <Button
                 size="lg"
                 className="h-12 min-w-[200px] bg-[var(--brand-green)] text-base font-semibold text-white hover:bg-[var(--brand-green-dark)] hover:scale-105 transition-transform"
@@ -33,7 +33,7 @@ export function FooterCta() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link href="/auth/sign-up">
+            <Link href="https://app.hespor.com/auth/login">
               <Button
                 size="lg"
                 variant="outline"

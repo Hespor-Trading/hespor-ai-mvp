@@ -74,7 +74,7 @@ export default function AboutPage() {
             <h2 className="mb-4 text-2xl font-bold text-foreground">Join Thousands of Sellers</h2>
             <p className="mb-6 text-muted-foreground">Start automating your Amazon advertising today with Hespor AI.</p>
             <a
-              href="/auth/sign-up"
+              href="https://app.hespor.com/auth/login"
               className="inline-block rounded-lg bg-[var(--brand-green)] px-6 py-3 font-semibold text-white transition-transform hover:scale-105 hover:bg-[var(--brand-green-dark)]"
             >
               Get Started Free

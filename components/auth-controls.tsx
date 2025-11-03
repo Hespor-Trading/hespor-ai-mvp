@@ -75,12 +75,12 @@ export function AuthControls({ size = "sm", showEmail = false }: AuthControlsPro
 
   return (
     <div className="flex items-center space-x-4">
-      <Link href="/auth/login">
+      <Link href="https://app.hespor.com/auth/login">
         <Button variant="ghost" size={size} className="hidden md:inline-flex">
           Sign In
         </Button>
       </Link>
-      <Link href="/auth/sign-up">
+      <Link href="https://app.hespor.com/auth/login">
         <Button size={size} className="bg-[var(--brand-green)] hover:bg-[var(--brand-green-dark)] text-white">
           Get Started
         </Button>

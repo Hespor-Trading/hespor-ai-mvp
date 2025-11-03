@@ -82,7 +82,7 @@ export function Hero() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
             >
-              <Link href="/auth/sign-up">
+              <Link href="https://app.hespor.com/auth/login">
                 <Button
                   size="lg"
                   className="h-12 min-w-[200px] bg-[var(--brand-green)] text-base font-semibold text-white hover:bg-[var(--brand-green-dark)] hover:scale-105 transition-transform"
@@ -91,7 +91,7 @@ export function Hero() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/auth/login">
+              <Link href="https://app.hespor.com/auth/login">
                 <Button
                   size="lg"
                   variant="outline"

@@ -43,7 +43,7 @@ export default function Page() {
       })
       if (error) throw error
       if (data.session) {
-        router.push("/connect/amazon")
+        router.push("https://app.hespor.com/connect/amazon")
       } else {
         router.push("/auth/sign-up-success")
       }
@@ -196,7 +196,7 @@ export default function Page() {
 
               <div className="mt-4 text-center text-sm">
                 Already have an account?{" "}
-                <Link href="/auth/login" className="underline underline-offset-4 text-[var(--brand-green)]">
+                <Link href="https://app.hespor.com/auth/login" className="underline underline-offset-4 text-[var(--brand-green)]">
                   Sign in
                 </Link>
               </div>

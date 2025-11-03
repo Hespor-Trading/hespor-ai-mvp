@@ -123,7 +123,7 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <Link href="/auth/sign-up">
+              <Link href="https://app.hespor.com/auth/login">
                 <Button
                   className={`w-full ${
                     plan.popular
